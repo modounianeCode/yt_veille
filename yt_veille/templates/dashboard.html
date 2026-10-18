@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord · YT Veille{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold mb-6">Tableau de bord</h1>
+
+<!-- Cartes de statistiques -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+  <div class="bg-white rounded-xl shadow-sm p-5">
+    <div class="text-sm text-slate-500">Domaines actifs</div>
+    <div class="text-3xl font-bold">{{ domains | selectattr('is_active') | list | length }}</div>
+    <div class="text-xs text-slate-400 mt-1">sur {{ domains | length }} au total</div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm p-5">
+    <div class="text-sm text-slate-500">Vidéos en base</div>
+    <div class="text-3xl font-bold">{{ total_videos }}</div>
+    <div class="text-xs text-slate-400 mt-1">toutes collectes confondues</div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm p-5">
+    <div class="text-sm text-slate-500">Quota API aujourd'hui</div>
+    <div class="text-3xl font-bold">{{ usage.units_used }} <span class="text-base font-normal text-slate-400">/ 10000</span></div>
+    <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+      <div class="h-full {% if quota_pct < 70 %}bg-emerald-500{% elif quota_pct < 90 %}bg-amber-500{% else %}bg-red-500{% endif %}"
+           style="width: {{ quota_pct if quota_pct < 100 else 100 }}%"></div>
+    </div>
+    <div class="text-xs text-slate-400 mt-1">{{ quota_pct }} % · {{ usage.requests_count }} requêtes</div>
+  </div>
+</div>
+
+<!-- Top 3 par domaine -->
+<h2 class="text-lg font-semibold mb-3">Meilleures vidéos par domaine</h2>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+  {% for domain, rows in tops %}
+  <div class="bg-white rounded-xl shadow-sm p-5">
+    <div class="flex items-center justify-between mb-3">
+      <a href="/domains/{{ domain.slug }}" class="font-semibold hover:underline">{{ domain.name }}</a>
+      <span class="text-xs text-slate-400">{{ domain.slug }}</span>
+    </div>
+    {% if rows %}
+    <ol class="space-y-2">
+      {% for r in rows %}
+      <li class="flex items-start gap-3">
+        <span class="text-slate-400 font-mono text-sm w-4">{{ r.rank }}</span>
+        <div class="min-w-0 flex-1">
+          <a href="/videos/{{ r.video_id }}" class="text-sm font-medium hover:underline line-clamp-1">{{ r.title }}</a>
+          <div class="text-xs text-slate-500">{{ r.channel }} · {{ "{:,}".format(r.view_count) }} vues · score {{ "%.3f"|format(r.score_total) }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-sm text-slate-400">Aucune vidéo collectée.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Dernières collectes -->
+<h2 class="text-lg font-semibold mb-3">Dernières collectes</h2>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-left">
+      <tr>
+        <th class="px-4 py-2">Domaine</th>
+        <th class="px-4 py-2">Statut</th>
+        <th class="px-4 py-2 text-right">Vidéos</th>
+        <th class="px-4 py-2 text-right">Unités</th>
+        <th class="px-4 py-2">Début</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for coll, domain in collections %}
+      <tr>
+        <td class="px-4 py-2"><a href="/domains/{{ domain.slug }}" class="hover:underline">{{ domain.name }}</a></td>
+        <td class="px-4 py-2">
+          {% if coll.status == 'ok' %}<span class="text-emerald-600">ok</span>
+          {% elif coll.status == 'error' %}<span class="text-red-600" title="{{ coll.error_message }}">erreur</span>
+          {% else %}<span class="text-amber-600">{{ coll.status }}</span>{% endif %}
+        </td>
+        <td class="px-4 py-2 text-right">{{ coll.videos_found }}</td>
+        <td class="px-4 py-2 text-right">{{ coll.api_units_used }}</td>
+        <td class="px-4 py-2 text-slate-500">{{ coll.started_at.strftime('%d/%m %H:%M') }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Aucune collecte pour le moment.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

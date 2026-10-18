@@ -1,0 +1,28 @@
+# Ne JAMAIS embarquer les secrets ni les données locales dans l'image
+.env
+.venv/
+venv/
+.git/
+.gitignore
+
+# Données & artefacts générés
+*.db
+*.sqlite
+*.sqlite3
+exports/
+reports/
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Divers
+tests/
+DESIGN.md
+render.yaml

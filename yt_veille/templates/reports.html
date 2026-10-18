@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Rapports · YT Veille{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold mb-6">Rapports</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2">
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-left">
+          <tr>
+            <th class="px-4 py-2">Domaine</th>
+            <th class="px-4 py-2">Date</th>
+            <th class="px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for r in reports %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-2">{{ r.domain.name }}</td>
+            <td class="px-4 py-2 text-slate-500">{{ r.name }}</td>
+            <td class="px-4 py-2 text-right">
+              <a href="/reports/{{ r.domain.slug }}/{{ r.name }}" class="text-slate-600 hover:underline">Voir</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="px-4 py-10 text-center text-slate-400">
+            Aucun rapport. Génère-en un à droite.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="bg-white rounded-xl shadow-sm p-5 sticky top-4">
+      <h2 class="font-semibold mb-3">Générer un rapport</h2>
+      <p class="text-xs text-slate-400 mb-3">Crée un rapport Markdown daté (top 20) pour un domaine.</p>
+      <div class="space-y-2">
+        {% for domain in domains %}
+        <form method="post" action="/reports/{{ domain.slug }}/generate">
+          <button class="w-full text-left text-sm border border-slate-200 px-3 py-2 rounded hover:bg-slate-50">
+            📄 {{ domain.name }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

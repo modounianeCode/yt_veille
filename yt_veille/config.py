@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     # Paramètre τ de décroissance de la fraîcheur (en jours)
     recency_tau_days: float = 7.0
 
+    # ── Planification ──────────────────────────────────────────
+    # Activer les collectes automatiques (utile en ligne)
+    schedule_enabled: bool = False
+    # Heures de collecte (format « HH:MM,HH:MM », heure locale de schedule_timezone)
+    schedule_times: str = "06:00,18:00"
+    schedule_timezone: str = "UTC"
+    # Jeton secret pour déclencher une collecte via /api/cron/collect (cron externe)
+    cron_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

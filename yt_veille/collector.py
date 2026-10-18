@@ -20,7 +20,14 @@ from .models import (
     now_utc,
 )
 from .scoring import Candidate, Weights, score_batch
-from .youtube import YouTubeClient, default_published_after
+from .youtube import (
+    COST_CHANNELS,
+    COST_SEARCH,
+    COST_VIDEOS,
+    DEFAULT_DAILY_QUOTA,
+    YouTubeClient,
+    default_published_after,
+)
 
 _DURATION_RE = re.compile(
     r"P(?:(?P<days>\d+)D)?T?(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?"
@@ -152,6 +159,18 @@ def collect_domain(
     collection = Collection(domain_id=domain.id, started_at=now, status="running")
     session.add(collection)
     session.flush()
+
+    # Garde-fou de quota : on n'entame pas une collecte qu'on ne peut pas finir
+    estimated = estimate_units(domain)
+    remaining = remaining_quota(session)
+    if estimated > remaining:
+        collection.status = "skipped"
+        collection.error_message = (
+            f"Quota insuffisant : {estimated} unités estimées, {remaining} restantes."
+        )
+        collection.finished_at = now_utc()
+        session.flush()
+        return collection
 
     units_before = client.units_used
     requests_before = client.requests_count
@@ -289,6 +308,19 @@ def quota_today(session: Session) -> ApiQuotaUsage:
     if usage is None:
         usage = ApiQuotaUsage(day=date.today(), units_used=0, requests_count=0)
     return usage
+
+
+def estimate_units(domain: Domain) -> int:
+    """Estimation du coût en unités de quota pour collecter un domaine.
+
+    Chaque mot-clé = 1 recherche (100 unités) ; + 2 appels de détail au maximum.
+    """
+    return len(domain.keywords) * COST_SEARCH + COST_VIDEOS + COST_CHANNELS
+
+
+def remaining_quota(session: Session) -> int:
+    """Unités de quota encore disponibles aujourd'hui."""
+    return DEFAULT_DAILY_QUOTA - quota_today(session).units_used
 
 
 def latest_scores(session: Session, domain_id: int):

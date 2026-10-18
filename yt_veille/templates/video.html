@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ video.title }} · YT Veille{% endblock %}
+{% block content %}
+
+<a href="{% if domain %}/domains/{{ domain.slug }}{% else %}/{% endif %}" class="text-sm text-slate-500 hover:underline">← Retour</a>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+  <!-- Colonne principale -->
+  <div class="lg:col-span-2 space-y-6">
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h1 class="text-xl font-bold mb-3">{{ video.title }}</h1>
+      <div class="flex flex-wrap gap-4 text-sm text-slate-500 mb-4">
+        <span>👤 {{ video.channel.title if video.channel else '—' }}</span>
+        <span>👀 {{ "{:,}".format(video.view_count) }} vues</span>
+        <span>👍 {{ "{:,}".format(video.like_count) }}</span>
+        <span>💬 {{ "{:,}".format(video.comment_count) }}</span>
+        <span>⏱️ {{ (video.duration_seconds // 60) }} min</span>
+      </div>
+      <a href="https://www.youtube.com/watch?v={{ video.video_id }}" target="_blank"
+         class="inline-block text-sm bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500">▶ Voir sur YouTube</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h2 class="font-semibold mb-3">Description</h2>
+      <pre class="text-sm text-slate-600 whitespace-pre-wrap font-sans">{{ video.description or 'Pas de description.' }}</pre>
+      {% if video.tags %}
+      <div class="mt-4 flex flex-wrap gap-1">
+        {% for tag in video.tags %}
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Colonne latérale : historique du score -->
+  <div class="space-y-6">
+    {% if history %}
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h2 class="font-semibold mb-1">Score actuel</h2>
+      {% set last = history[-1] %}
+      <div class="text-3xl font-bold mb-3">{{ "%.3f"|format(last.score_total) }}</div>
+      <div class="space-y-1 text-xs">
+        {% for label, value in [
+          ('Vues', last.score_views),
+          ('Engagement', last.score_engagement),
+          ('Croissance', last.score_growth),
+          ('Pertinence', last.score_relevance),
+          ('Fraîcheur', last.score_recency)
+        ] %}
+        <div class="flex items-center gap-2">
+          <span class="w-24 text-slate-500">{{ label }}</span>
+          <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-slate-700" style="width: {{ (value * 100) | round(0) }}%"></div>
+          </div>
+          <span class="w-10 text-right text-slate-400">{{ "%.2f"|format(value) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-5">
+      <h2 class="font-semibold mb-3">Évolution ({{ history | length }} collecte(s))</h2>
+      <canvas id="chart" height="180"></canvas>
+    </div>
+
+    <script>
+      const labels = {{ history | map(attribute='collected_at') | map('string') | list | tojson }};
+      const views = {{ history | map(attribute='view_count') | list | tojson }};
+      const scores = {{ history | map(attribute='score_total') | list | tojson }};
+    </script>
+    <script>
+      new Chart(document.getElementById('chart'), {
+        data: {
+          labels: labels,
+          datasets: [
+            { type: 'line', label: 'Score', data: scores, yAxisID: 'y', borderColor: '#0f172a', tension: .3 },
+            { type: 'bar', label: 'Vues', data: views, yAxisID: 'y1', backgroundColor: '#cbd5e1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { position: 'left', beginAtZero: true, max: 1 },
+            y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    </script>
+    {% else %}
+    <p class="text-sm text-slate-400">Aucun historique de score.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

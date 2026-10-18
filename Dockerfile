@@ -8,12 +8,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Installe d'abord les dépendances (cache Docker plus efficace)
+# 1) Configuration + code du paquet (pour un cache Docker efficace)
 COPY pyproject.toml ./
+COPY yt_veille ./yt_veille
 RUN pip install --upgrade pip && pip install .
 
-# Puis le code
+# 2) Reste du projet (seed.yml, etc.)
 COPY . .
 
-# Crée les tables au démarrage et affiche l'aide
-CMD ["sh", "-c", "yt-veille init-db && yt-veille domains"]
+EXPOSE 8000
+
+# Crée les tables, importe les domaines (idempotent), puis lance l'interface web.
+# ${PORT} est fourni par l'hébergeur (Render, etc.). En local, défaut 8000.
+CMD ["sh", "-c", "yt-veille init-db && yt-veille seed && yt-veille serve --host 0.0.0.0 --port ${PORT:-8000}"]

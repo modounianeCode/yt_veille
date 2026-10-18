@@ -48,7 +48,20 @@ Statut : **à valider avant tout développement**
 
 Le **POC CLI (phases 1 à 4)** est implémenté dans le sous-dossier `yt-veille/` :
 config, modèles, client YouTube, scoring, collecteur, rapports/exports et CLI.
-Les phases 5+ (interface web, planification, déploiement) restent à faire.
+
+**Également fait :**
+- **Phase 5 — interface web** (`yt_veille/webapp.py` + templates Jinja2/HTMX/Tailwind) :
+  tableau de bord, gestion des domaines, résultats filtrables, fiche vidéo avec
+  graphique d'évolution, rapports, API JSON, `/docs`.
+- **Phase 7 — planification** (`yt_veille/scheduler.py`) : commande `worker` et
+  planificateur intégré (`SCHEDULE_ENABLED`), avec **garde-fou de quota**.
+
+**Reste :** phase 8 (déploiement Render + base Neon) et les extensions (auth, LLM,
+transcriptions).
+
+**Base Neon provisionnée :** projet `yt-veille` (`proud-frost-00385101`), région
+`eu-central-1` (Francfort), PG 18. La chaîne de connexion est dans `.env`
+(non versionné) sous `DATABASE_URL`.
 
 ---
 

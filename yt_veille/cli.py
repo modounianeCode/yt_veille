@@ -237,6 +237,25 @@ def cmd_quota(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    console.print(
+        f"[green]✓[/] Interface web : [bold]http://{args.host}:{args.port}[/]  "
+        f"(documentation API : /docs)"
+    )
+    uvicorn.run("yt_veille.webapp:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
+def cmd_worker(_args: argparse.Namespace) -> int:
+    from .scheduler import run_forever
+
+    console.print("[green]✓[/] Planificateur en cours d'exécution (Ctrl+C pour arrêter).")
+    run_forever()
+    return 0
+
+
 # ─────────────────────────────────────────────────────────────
 #  Parseur d'arguments
 # ─────────────────────────────────────────────────────────────
@@ -296,6 +315,16 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("quota", help="Afficher le quota API utilisé aujourd'hui").set_defaults(
         func=cmd_quota
     )
+
+    p_serve = sub.add_parser("serve", help="Lancer l'interface web")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.add_argument("--reload", action="store_true", help="Rechargement auto (développement)")
+    p_serve.set_defaults(func=cmd_serve)
+
+    sub.add_parser(
+        "worker", help="Processus planificateur (collectes automatiques)"
+    ).set_defaults(func=cmd_worker)
 
     return parser
 

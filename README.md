@@ -4,8 +4,8 @@ Outil d'automatisation qui **trouve, classe et archive les meilleures vidéos
 YouTube par domaine** (thème + mots-clés), à partir de la **YouTube Data API v3**.
 
 > 📄 La conception complète est dans [`DESIGN.md`](DESIGN.md).
-> Cette première version est un **POC en ligne de commande** (phases 1 à 4 de la
-> feuille de route). L'interface web viendra ensuite.
+> État actuel : **phases 1 à 5 et 7** faites (CLI, collecte, scoring, **interface
+> web**, **planification**). Reste : déploiement en ligne.
 
 ---
 
@@ -72,7 +72,43 @@ yt-veille export --domain ia --format xlsx
 
 # Vérifier le quota YouTube consommé aujourd'hui
 yt-veille quota
+
+# Lancer l'interface web → http://127.0.0.1:8000
+yt-veille serve
 ```
+
+### Interface web
+
+`yt-veille serve` ouvre un service FastAPI qui propose :
+
+- **Tableau de bord** : statistiques, quota du jour, top 3 par domaine, dernières collectes.
+- **Domaines** : création, activation/désactivation, ajout/suppression de mots-clés, bouton **Collecter**.
+- **Résultats d'un domaine** : tableau filtrable (vues minimum, tri par score/vues/engagement/récence) + exports.
+- **Fiche vidéo** : métadonnées et **graphique d'évolution** du score et des vues.
+- **Rapports** : génération et lecture des rapports Markdown.
+- **API JSON** sous `/api/*` et documentation interactive sur `/docs`.
+
+### Collectes automatiques (planification)
+
+Deux options, au choix :
+
+```bash
+# A) Processus dédié (recommandé en production)
+yt-veille worker
+
+# B) Intégré au serveur web : passer SCHEDULE_ENABLED=true dans .env
+```
+
+Réglages dans `.env` :
+
+```dotenv
+SCHEDULE_ENABLED=true
+SCHEDULE_TIMES=06:00,18:00      # heures de collecte, séparées par des virgules
+SCHEDULE_TIMEZONE=UTC
+```
+
+Un **garde-fou de quota** empêche de lancer une collecte qui dépasserait les
+10 000 unités/jour : le domaine est alors marqué « skipped ».
 
 ---
 
@@ -90,6 +126,8 @@ yt-veille quota
 | `report --domain SLUG [--limit N]` | Génère le rapport Markdown |
 | `export --domain SLUG [--format csv\|json\|xlsx] [--out PATH]` | Exporte les données |
 | `quota` | Quota API utilisé aujourd'hui |
+| `serve [--host H --port P]` | Lance l'interface web |
+| `worker` | Lance le planificateur de collectes |
 
 ---
 
@@ -127,6 +165,37 @@ Les poids sont réglables par domaine (colonnes `w_*` de la table `domains`).
 docker compose run --rm yt-veille yt-veille collect
 docker compose run --rm yt-veille yt-veille top --domain ia
 ```
+
+L'image sert l'interface web par défaut (`yt-veille serve`), exposée sur le port 8000
+(ou `$PORT` fourni par l'hébergeur).
+
+---
+
+## Déploiement en ligne (Render + Neon)
+
+Le dépôt contient tout le nécessaire : `render.yaml`, `Dockerfile`, `.dockerignore`.
+
+1. **Pousser le code sur GitHub** (dépôt `modounianeCode/yt_veille`).
+2. Sur **Render** → **New → Blueprint** → sélectionner le dépôt.
+   Render lit `render.yaml` et crée le service web (région Francfort, même que Neon).
+3. Renseigner les **secrets** demandés par Render :
+   - `DATABASE_URL` → chaîne Neon : `postgresql+psycopg://…@…neon.tech/neondb?sslmode=require`
+   - `YOUTUBE_API_KEY` → ta clé YouTube
+4. Déployer. Le conteneur crée les tables, importe les domaines, puis démarre le serveur.
+   Santé : `GET /health`.
+
+### Option cron externe
+
+Sur le plan gratuit, le service s'endort après inactivité et le planificateur interne
+ne tourne donc pas en continu. Pour des collectes fiables, utilise un cron externe
+(gratuit) qui appelle :
+
+```
+GET https://<ton-service>.onrender.com/api/cron/collect?token=<CRON_TOKEN>
+```
+
+`CRON_TOKEN` est généré par Render (`generateValue: true`) et consultable dans le
+tableau de bord. Tant que le jeton est vide, l'endpoint renvoie `403`.
 
 ---
 

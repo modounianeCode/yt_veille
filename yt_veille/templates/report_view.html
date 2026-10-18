@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} · YT Veille{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <a href="/reports" class="text-sm text-slate-500 hover:underline">← Tous les rapports</a>
+  <span class="text-sm text-slate-400">{{ slug }} / {{ name }}</span>
+</div>
+
+<article class="bg-white rounded-xl shadow-sm p-8 prose prose-slate max-w-none
+                prose-table:text-sm prose-h1:text-2xl prose-a:text-blue-600">
+  {{ content | safe }}
+</article>
+
+{% endblock %}

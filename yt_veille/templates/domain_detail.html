@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ domain.name }} · YT Veille{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-1">
+  <h1 class="text-2xl font-bold">{{ domain.name }}</h1>
+  <span class="text-sm text-slate-400">{{ domain.slug }}</span>
+</div>
+<p class="text-slate-500 mb-6">{{ domain.description }}</p>
+
+{% if request.query_params.get('started') %}
+<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg px-4 py-3 mb-6">
+  ⏳ Collecte lancée en arrière-plan. Recharge la page dans quelques instants (et regarde le quota).
+</div>
+{% endif %}
+
+<!-- Barre d'actions / filtres -->
+<form method="get" class="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-wrap items-end gap-4">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">Vues minimum</label>
+    <input type="number" name="min_views" value="{{ min_views }}" min="0" step="100"
+           class="text-sm border border-slate-200 rounded px-2 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-slate-300">
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">Trier par</label>
+    <select name="order" class="text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-300">
+      <option value="score" {{ 'selected' if order == 'score' }}>Score</option>
+      <option value="views" {{ 'selected' if order == 'views' }}>Vues</option>
+      <option value="engagement" {{ 'selected' if order == 'engagement' }}>Engagement</option>
+      <option value="recent" {{ 'selected' if order == 'recent' }}>Plus récentes</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">Limite</label>
+    <input type="number" name="limit" value="{{ limit }}" min="1" max="500"
+           class="text-sm border border-slate-200 rounded px-2 py-1.5 w-24 focus:outline-none focus:ring-2 focus:ring-slate-300">
+  </div>
+  <button class="text-sm bg-slate-800 text-white px-4 py-1.5 rounded hover:bg-slate-700">Appliquer</button>
+
+  <div class="ml-auto flex items-center gap-2">
+    <form method="post" action="/domains/{{ domain.slug }}/collect">
+      <button class="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-500">↻ Collecter</button>
+    </form>
+    <a href="/domains/{{ domain.slug }}/export?fmt=csv" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">CSV</a>
+    <a href="/domains/{{ domain.slug }}/export?fmt=json" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">JSON</a>
+    <a href="/domains/{{ domain.slug }}/export?fmt=xlsx" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">Excel</a>
+  </div>
+</form>
+
+<!-- Tableau des résultats -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-left">
+      <tr>
+        <th class="px-3 py-2 text-right">#</th>
+        <th class="px-3 py-2 text-right">Score</th>
+        <th class="px-3 py-2">Vidéo</th>
+        <th class="px-3 py-2">Chaîne</th>
+        <th class="px-3 py-2 text-right">Vues</th>
+        <th class="px-3 py-2 text-right">Likes</th>
+        <th class="px-3 py-2 text-right">Engag.</th>
+        <th class="px-3 py-2 text-right">Âge (j)</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2 text-right text-slate-400 font-mono">{{ r.rank }}</td>
+        <td class="px-3 py-2 text-right font-semibold">{{ "%.3f"|format(r.score_total) }}</td>
+        <td class="px-3 py-2 max-w-md">
+          <a href="/videos/{{ r.video_id }}" class="hover:underline line-clamp-1">{{ r.title }}</a>
+        </td>
+        <td class="px-3 py-2 text-slate-500">{{ r.channel }}</td>
+        <td class="px-3 py-2 text-right">{{ "{:,}".format(r.view_count) }}</td>
+        <td class="px-3 py-2 text-right">{{ "{:,}".format(r.like_count) }}</td>
+        <td class="px-3 py-2 text-right">{{ r.engagement_pct }} %</td>
+        <td class="px-3 py-2 text-right text-slate-400">{{ r.age_days }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">
+        Aucune vidéo. Clique sur « Collecter » pour lancer une première recherche.
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-xs text-slate-400 mt-3">{{ rows | length }} vidéo(s) affichée(s).</p>
+
+{% endblock %}
