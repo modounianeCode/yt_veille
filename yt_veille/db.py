@@ -17,7 +17,16 @@ _settings = get_settings()
 # `check_same_thread=False` n'est utile que pour SQLite.
 _connect_args = {"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {}
 
-engine = create_engine(_settings.database_url, future=True, connect_args=_connect_args)
+engine = create_engine(
+    _settings.database_url,
+    future=True,
+    connect_args=_connect_args,
+    # Indispensable avec Neon : le calcul s'endort et ferme les connexions.
+    # `pool_pre_ping` teste la connexion avant usage et la recrée si besoin ;
+    # `pool_recycle` force le renouvellement des connexions anciennes.
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
 
 
