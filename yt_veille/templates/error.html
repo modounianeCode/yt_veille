@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Erreur {{ code }} · YT Veille{% endblock %}
+{% block content %}
+
+<div class="mx-auto max-w-lg py-10 text-center sm:py-16">
+  <span class="grid mx-auto h-16 w-16 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+    {{ m.icon('alert', 'h-7 w-7') }}
+  </span>
+
+  <p class="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-400">Erreur {{ code }}</p>
+  <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+    {% if code == 404 %}Cette page n'existe pas
+    {% elif code == 403 %}Accès refusé
+    {% elif code == 500 %}Quelque chose s'est mal passé
+    {% else %}Requête impossible{% endif %}
+  </h1>
+  <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">{{ message }}</p>
+
+  <div class="mt-7 flex flex-wrap justify-center gap-3">
+    {{ m.btn('Tableau de bord', '/', 'primary', 'home') }}
+    {{ m.btn('Voir les domaines', '/domains', 'secondary', 'layers') }}
+  </div>
+</div>
+
+{% endblock %}

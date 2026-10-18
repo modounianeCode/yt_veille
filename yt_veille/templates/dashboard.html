@@ -3,70 +3,107 @@
 {% block title %}Tableau de bord · YT Veille{% endblock %}
 {% block content %}
 
-<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
-  <div>
-    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Tableau de bord</h1>
-    <p class="mt-1 text-sm text-slate-500">Vue d'ensemble de la veille et des dernières collectes.</p>
-  </div>
-  <form method="post" action="/collect-all">
-    <button class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-60">
-      <span>↻</span> Collecter tous les domaines
-    </button>
-  </form>
-</div>
+{# ── Accueil : message clair + action principale ─────────── #}
+<section class="mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white shadow-lg shadow-brand-900/10">
+  <div class="relative px-6 py-8 sm:px-10 sm:py-10">
+    <div class="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+    <div class="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-brand-400/20 blur-3xl"></div>
 
-<!-- Statistiques -->
-<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-  {{ m.stat_card('Domaines actifs', (domains | selectattr('is_active') | list | length) ~ ' / ' ~ (domains | length), 'domaines configurés') }}
-  {{ m.stat_card('Vidéos en base', total_videos, 'toutes collectes confondues') }}
+    <div class="relative max-w-3xl">
+      <p class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-100 ring-1 ring-inset ring-white/20">
+        {{ m.icon('sparkles', 'h-3.5 w-3.5') }} Veille automatique
+      </p>
+      <h1 class="mt-4 text-2xl font-bold leading-tight tracking-tight sm:text-[28px]">
+        Voici les meilleures vidéos récentes de tes domaines
+      </h1>
+      <p class="mt-3 max-w-2xl text-sm leading-relaxed text-brand-100/90">
+        Chaque vidéo est notée sur sa <strong class="font-semibold text-white">pertinence</strong>,
+        sa <strong class="font-semibold text-white">popularité</strong>, sa
+        <strong class="font-semibold text-white">croissance</strong> et sa
+        <strong class="font-semibold text-white">fraîcheur</strong> — puis filtrée pour écarter
+        le hors-sujet.
+      </p>
+
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <form method="post" action="/collect-all">
+          {{ m.btn('Collecter maintenant', icon_name='refresh') }}
+        </form>
+        {{ m.btn('Gérer les domaines', '/domains', 'ghost-light', 'layers') }}
+        {% if collections %}
+        <span class="text-xs text-brand-100/80">
+          Dernière collecte {{ collections[0][0].started_at | ago }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Chiffres clés ───────────────────────────────────────── #}
+<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  {{ m.metric('layers', 'Domaines actifs',
+      (domains | selectattr('is_active') | list | length) ~ ' / ' ~ (domains | length),
+      'thèmes configurés', 'brand') }}
+  {{ m.metric('video', 'Vidéos classées', total_videos, 'tous domaines confondus', 'slate') }}
+  {{ m.metric('gauge', 'Quota API', usage.units_used ~ ' / 10 000',
+      usage.requests_count ~ ' requêtes aujourd’hui', 'emerald' if quota_pct < 70 else ('amber' if quota_pct < 90 else 'amber')) }}
   <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="flex items-center justify-between">
-      <div class="text-xs font-medium uppercase tracking-wide text-slate-400">Quota API aujourd'hui</div>
-      <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">YouTube</span>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Consommation</span>
+      <span class="text-xs font-semibold tabular-nums text-slate-500">{{ quota_pct }} %</span>
     </div>
-    <div class="mt-2 flex items-baseline gap-1">
-      <span class="text-3xl font-bold tracking-tight text-slate-900">{{ usage.units_used }}</span>
-      <span class="text-sm text-slate-400">/ 10 000 unités</span>
-    </div>
-    <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-      <div class="h-full rounded-full {% if quota_pct < 70 %}bg-emerald-500{% elif quota_pct < 90 %}bg-amber-500{% else %}bg-rose-500{% endif %}"
-           style="width: {{ quota_pct if quota_pct < 100 else 100 }}%"></div>
-    </div>
-    <div class="mt-1.5 text-xs text-slate-400">{{ quota_pct }} % · {{ usage.requests_count }} requêtes</div>
+    <div class="mt-3">{{ m.progress(quota_pct) }}</div>
+    <p class="mt-2 text-xs text-slate-400">
+      {% if quota_pct < 70 %}Marge confortable pour les collectes du jour.
+      {% elif quota_pct < 90 %}Le quota commence à se remplir.
+      {% else %}Proche de la limite : les collectes suivantes seront ignorées.{% endif %}
+    </p>
   </div>
 </div>
 
-<!-- Meilleures vidéos par domaine -->
-<div class="mb-3 flex items-center justify-between">
-  <h2 class="text-lg font-semibold tracking-tight text-slate-900">Meilleures vidéos par domaine</h2>
-  <a href="/domains" class="text-sm font-medium text-brand-600 hover:text-brand-700">Gérer les domaines →</a>
+{# ── Meilleures vidéos par domaine ───────────────────────── #}
+<div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-slate-900">Meilleures vidéos par domaine</h2>
+    <p class="mt-0.5 text-sm text-slate-500">Les trois premiers de chaque thème, d'après le dernier classement.</p>
+  </div>
+  <a href="/domains" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 transition hover:text-brand-700">
+    Tous les domaines {{ m.icon('arrow-right', 'h-4 w-4') }}
+  </a>
 </div>
 
 {% if tops %}
-<div class="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+<div class="mb-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
   {% for domain, rows in tops %}
   <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
-      <a href="/domains/{{ domain.slug }}" class="flex items-center gap-2 font-semibold text-slate-900 hover:text-brand-600">
-        {{ domain.name }}
-        <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{{ domain.slug }}</span>
+    <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+      <a href="/domains/{{ domain.slug }}" class="group flex min-w-0 items-center gap-2">
+        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
+          {{ m.icon('layers', 'h-3.5 w-3.5') }}
+        </span>
+        <span class="truncate text-sm font-semibold text-slate-900 transition group-hover:text-brand-600">{{ domain.name }}</span>
       </a>
-      <a href="/domains/{{ domain.slug }}" class="text-xs font-medium text-slate-400 hover:text-slate-600">tout voir</a>
+      <span class="shrink-0 text-xs text-slate-400">{{ counts.get(domain.id, 0) }} vidéos</span>
     </div>
+
     {% if rows %}
     <ul class="divide-y divide-slate-100">
       {% for r in rows %}
-      <li class="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50">
+      <li class="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50/80">
         <span class="w-4 shrink-0 text-center text-sm font-bold tabular-nums text-slate-300">{{ r.rank }}</span>
-        <a href="/videos/{{ r.video_id }}">{{ m.thumb(r.thumbnail_url, r.duration_hms, 'w-24') }}</a>
+        <a href="/videos/{{ r.video_id }}" class="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-lg">
+          {{ m.thumb(r.thumbnail_url, r.duration_hms, 'w-24') }}
+        </a>
         <div class="min-w-0 flex-1">
-          <a href="/videos/{{ r.video_id }}" class="line-clamp-2 text-sm font-medium leading-snug text-slate-800 hover:text-brand-600">{{ r.title }}</a>
+          <a href="/videos/{{ r.video_id }}" class="line-clamp-2 text-sm font-medium leading-snug text-slate-800 transition hover:text-brand-600">{{ r.title }}</a>
           <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
-            <span class="truncate">{{ r.channel }}</span>
-            <span>·</span>
-            <span>{{ r.view_count | compact }} vues</span>
-            <span>·</span>
-            <span>{{ r.published_at | ago }}</span>
+            <span class="inline-flex min-w-0 items-center gap-1">
+              {{ m.icon('users', 'h-3 w-3') }}<span class="truncate">{{ r.channel }}</span>
+            </span>
+            <span class="text-slate-200">·</span>
+            <span class="whitespace-nowrap">{{ r.view_count | compact }} vues</span>
+            <span class="text-slate-200">·</span>
+            <span class="whitespace-nowrap">{{ r.published_at | ago }}</span>
           </div>
         </div>
         <div class="shrink-0">{{ m.score_pill(r.score_total) }}</div>
@@ -74,43 +111,59 @@
       {% endfor %}
     </ul>
     {% else %}
-    <div class="px-5 py-8 text-center text-sm text-slate-400">Aucune vidéo. Lance une collecte.</div>
+    <div class="px-5 py-10 text-center">
+      <p class="text-sm text-slate-400">Aucune vidéo pour ce domaine.</p>
+      <form method="post" action="/domains/{{ domain.slug }}/collect" class="mt-3">
+        {{ m.btn('Lancer une collecte', variant='secondary', icon_name='refresh') }}
+      </form>
+    </div>
     {% endif %}
   </div>
   {% endfor %}
 </div>
 {% else %}
-  {{ m.empty_state('Aucun domaine', 'Crée un domaine puis lance une collecte pour voir apparaître le classement.', '🗂️') }}
-  <div class="mt-4">{{ m.btn_ghost('Créer un domaine', '/domains') }}</div>
+  {{ m.empty_state('layers', 'Aucun domaine pour l’instant',
+      'Crée ton premier domaine avec quelques mots-clés : la première collecte remplira le tableau de bord.') }}
+  <div class="mt-4 flex justify-center">{{ m.btn('Créer un domaine', '/domains', 'primary', 'plus') }}</div>
 {% endif %}
 
-<!-- Dernières collectes -->
-<h2 class="mb-3 text-lg font-semibold tracking-tight text-slate-900">Dernières collectes</h2>
+{# ── Journal des collectes ───────────────────────────────── #}
+<div class="mb-3">
+  <h2 class="text-lg font-semibold tracking-tight text-slate-900">Dernières collectes</h2>
+  <p class="mt-0.5 text-sm text-slate-500">L'historique des passages automatiques sur tes domaines.</p>
+</div>
+
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
-      <tr>
-        <th class="px-5 py-2.5 font-medium">Domaine</th>
-        <th class="px-5 py-2.5 font-medium">Statut</th>
-        <th class="px-5 py-2.5 text-right font-medium">Vidéos</th>
-        <th class="px-5 py-2.5 text-right font-medium">Unités</th>
-        <th class="px-5 py-2.5 font-medium">Quand</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for coll, domain in collections %}
-      <tr class="transition hover:bg-slate-50">
-        <td class="px-5 py-3"><a href="/domains/{{ domain.slug }}" class="font-medium text-slate-700 hover:text-brand-600">{{ domain.name }}</a></td>
-        <td class="px-5 py-3">{{ m.status_pill(coll.status) }}</td>
-        <td class="px-5 py-3 text-right tabular-nums text-slate-600">{{ coll.videos_found }}</td>
-        <td class="px-5 py-3 text-right tabular-nums text-slate-500">{{ coll.api_units_used }}</td>
-        <td class="px-5 py-3 text-slate-400">{{ coll.started_at | ago }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5" class="px-5 py-10 text-center text-sm text-slate-400">Aucune collecte pour le moment.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="border-b border-slate-100 bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <tr>
+          <th scope="col" class="px-5 py-3 font-semibold">Domaine</th>
+          <th scope="col" class="px-5 py-3 font-semibold">Statut</th>
+          <th scope="col" class="px-5 py-3 text-right font-semibold">Vidéos</th>
+          <th scope="col" class="hidden px-5 py-3 text-right font-semibold sm:table-cell">Unités</th>
+          <th scope="col" class="px-5 py-3 text-right font-semibold">Quand</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for coll, domain in collections %}
+        <tr class="transition hover:bg-slate-50/80">
+          <td class="px-5 py-3">
+            <a href="/domains/{{ domain.slug }}" class="font-medium text-slate-700 transition hover:text-brand-600">{{ domain.name }}</a>
+          </td>
+          <td class="px-5 py-3">{{ m.status_pill(coll.status) }}</td>
+          <td class="px-5 py-3 text-right font-medium tabular-nums text-slate-700">{{ coll.videos_found }}</td>
+          <td class="hidden px-5 py-3 text-right tabular-nums text-slate-500 sm:table-cell">{{ coll.api_units_used }}</td>
+          <td class="px-5 py-3 text-right text-slate-400">{{ coll.started_at | ago }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="px-5 py-12 text-center text-sm text-slate-400">Aucune collecte enregistrée pour le moment.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 {% endblock %}

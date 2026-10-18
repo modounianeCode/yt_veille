@@ -32,6 +32,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
 from .collector import latest_scores, quota_today
@@ -88,8 +89,30 @@ def _ago(value) -> str:
     return value.strftime("%d/%m/%Y")
 
 
+_MOIS_FR = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+
+def _date_fr(value) -> str:
+    """« 2026-10-18 » → « 18 octobre 2026 » (dates des rapports)."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    try:
+        return f"{value.day} {_MOIS_FR[value.month - 1]} {value.year}"
+    except (AttributeError, IndexError):
+        return str(value)
+
+
 templates.env.filters["compact"] = _compact
 templates.env.filters["ago"] = _ago
+templates.env.filters["date_fr"] = _date_fr
 
 
 def _common_context() -> dict:
@@ -106,6 +129,16 @@ def _common_context() -> dict:
 def render(request: Request, name: str, context: dict | None = None, **kwargs):
     """Rend un template en injectant le contexte commun."""
     return templates.TemplateResponse(request, name, {**_common_context(), **(context or {})}, **kwargs)
+
+
+# ─────────────────────────────────────────────────────────────
+#  Pages d'erreur (HTML pour le navigateur, JSON pour /api)
+# ─────────────────────────────────────────────────────────────
+def _wants_html(request: Request) -> bool:
+    """Un navigateur envoie « Accept: text/html » ; un client d'API, non."""
+    if request.url.path.startswith("/api"):
+        return False
+    return "text/html" in request.headers.get("accept", "")
 
 
 @asynccontextmanager
@@ -125,6 +158,19 @@ app = FastAPI(
     description="Veille vidéo par domaine",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """404/403 soignées pour le navigateur, réponse JSON conservée pour l'API."""
+    if _wants_html(request):
+        return render(
+            request,
+            "error.html",
+            {"code": exc.status_code, "message": exc.detail},
+            status_code=exc.status_code,
+        )
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -163,6 +209,17 @@ def _apply_filters(rows: list[dict], min_views: int, order: str) -> list[dict]:
     else:  # score (déjà trié, mais on garde l'explicite)
         rows = sorted(rows, key=lambda r: r["score_total"], reverse=True)
     return rows
+
+
+def _video_counts(session: Session) -> dict[int, int]:
+    """Nombre de vidéos classées par domaine (clé = identifiant du domaine)."""
+    return dict(
+        session.execute(
+            select(Score.domain_id, func.count(func.distinct(Score.video_pk))).group_by(
+                Score.domain_id
+            )
+        ).all()
+    )
 
 
 def _recent_collections(session: Session, limit: int = 10):
@@ -233,6 +290,7 @@ def dashboard(request: Request, session: Session = Depends(get_db)):
             "usage": usage,
             "quota_pct": pct,
             "tops": tops,
+            "counts": _video_counts(session),
             "collections": _recent_collections(session, limit=8),
         },
     )
@@ -241,17 +299,10 @@ def dashboard(request: Request, session: Session = Depends(get_db)):
 @app.get("/domains", response_class=HTMLResponse)
 def domains_page(request: Request, session: Session = Depends(get_db)):
     domains = list(session.execute(select(Domain).order_by(Domain.slug)).scalars())
-    counts = dict(
-        session.execute(
-            select(Score.domain_id, func.count(func.distinct(Score.video_pk))).group_by(
-                Score.domain_id
-            )
-        ).all()
-    )
     return render(
         request,
         "domains.html",
-        {"domains": domains, "counts": counts},
+        {"domains": domains, "counts": _video_counts(session)},
     )
 
 

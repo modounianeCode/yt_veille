@@ -89,6 +89,21 @@ yt-veille serve
 - **Rapports** : génération et lecture des rapports Markdown.
 - **API JSON** sous `/api/*` et documentation interactive sur `/docs`.
 
+**Charte visuelle** (pour rester cohérent en modifiant les pages) :
+
+- Composants réutilisables dans `yt_veille/templates/_macros.html` : `icon`, `btn`, `metric`,
+  `thumb`, `score_pill`, `score_bar`, `status_pill`, `chip`, `navlink`, `crumb`, `progress`,
+  `empty_state`. Toujours passer par ces macros plutôt que réécrire du HTML.
+- Icônes **SVG en ligne** (style Lucide, `stroke: currentColor`) et non des emoji : rendu
+  identique sur tous les systèmes. Ajouter une icône = une entrée dans le dictionnaire
+  `icons` de la macro `icon`.
+- Palette : `brand` (indigo) définie dans `base.html` (config Tailwind, chargé depuis le CDN),
+  fond `slate-50`, cartes blanches `rounded-2xl border border-slate-200 shadow-sm`.
+- Navigation : état actif calculé sur `request.url.path`, lien d'évitement (« Aller au
+  contenu »), anneaux de focus visibles sur tous les éléments interactifs.
+- Erreurs 404/403 : page HTML soignée (`templates/error.html`) pour le navigateur, réponse
+  JSON conservée pour `/api/*` (voir `_wants_html` dans `webapp.py`).
+
 ### Collectes automatiques (planification)
 
 Deux options, au choix :

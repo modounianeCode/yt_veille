@@ -63,3 +63,32 @@ def test_cron_distingue_jeton_absent_et_jeton_faux(monkeypatch):
         webapp.cron_collect(BackgroundTasks(), token="faux")
     assert exc.value.status_code == 403
     assert "invalide" in exc.value.detail
+
+
+def test_filtre_date_fr():
+    """« 2026-10-18 » doit s'afficher « 18 octobre 2026 » sur la page Rapports."""
+    from datetime import date, datetime, timezone
+
+    assert webapp._date_fr("2026-10-18") == "18 octobre 2026"
+    assert webapp._date_fr(date(2026, 1, 1)) == "1 janvier 2026"
+    assert webapp._date_fr(datetime(2026, 8, 3, 12, tzinfo=timezone.utc)) == "3 août 2026"
+    assert webapp._date_fr(None) == ""
+    # Une valeur non datable est renvoyée telle quelle plutôt que de planter.
+    assert webapp._date_fr("pas-une-date") == "pas-une-date"
+
+
+def test_les_routes_api_ne_renvoient_pas_de_html():
+    """Le handler d'erreur HTML ne doit pas s'appliquer sous /api."""
+    from types import SimpleNamespace
+
+    req = SimpleNamespace(
+        url=SimpleNamespace(path="/api/domains/inconnu/videos"),
+        headers={"accept": "text/html"},
+    )
+    assert webapp._wants_html(req) is False
+
+    req_page = SimpleNamespace(
+        url=SimpleNamespace(path="/domains/inconnu"),
+        headers={"accept": "text/html"},
+    )
+    assert webapp._wants_html(req_page) is True

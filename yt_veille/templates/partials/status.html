@@ -1,9 +1,11 @@
+{% import "_macros.html" as m %}
 {% if state == 'running' %}
 <div hx-get="/domains/{{ domain.slug }}/status?started={{ started }}&since={{ since | urlencode }}"
      hx-trigger="every 3s" hx-swap="outerHTML"
-     class="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+     class="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+     role="status">
   <span class="h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600"></span>
-  <span>Collecte en cours… cette page se mettra à jour automatiquement à la fin.</span>
+  <span><strong class="font-semibold">Collecte en cours…</strong> cette page se mettra à jour automatiquement à la fin (environ une minute).</span>
 </div>
 {% elif reload %}
 <div>

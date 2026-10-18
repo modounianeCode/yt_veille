@@ -352,6 +352,12 @@ pour chaque domaine actif :
 
 L'interface est servie par le même FastAPI (Jinja2 + HTMX) → **un seul service à déployer**.
 
+**Design system** : les pages ne contiennent presque pas de HTML « brut » — elles composent des
+macros définies dans `templates/_macros.html` (boutons, cartes de stats, vignettes, pastilles de
+score, états vides, icônes SVG). Les icônes sont des **SVG en ligne** (style Lucide) plutôt que des
+emoji, pour un rendu identique sur tous les systèmes et une couleur héritée du texte. Les erreurs
+404/403 affichent une page soignée pour le navigateur et gardent une réponse JSON sous `/api/*`.
+
 ---
 
 ## 10. Gestion des domaines — recommandation
