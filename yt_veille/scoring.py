@@ -113,15 +113,25 @@ def raw_recency(published_at: datetime, now: datetime, tau_days: float = 7.0) ->
     return math.exp(-age_days / max(tau_days, 1e-6))
 
 
+def is_relevant(title: str, description: str, tags: list[str], keywords: list[str]) -> bool:
+    """Vrai si au moins un mot-clé du domaine apparaît dans la vidéo.
+
+    Sert de filtre : une vidéo qui ne mentionne aucun mot-clé du domaine
+    n'a rien à y faire, même si elle fait beaucoup de vues.
+    """
+    _, matched = raw_relevance(title, description, tags, keywords)
+    return bool(matched)
+
+
 # ─────────────────────────────────────────────────────────────
 #  Combinaison pondérée
 # ─────────────────────────────────────────────────────────────
 @dataclass
 class Weights:
-    views: float = 0.25
-    engagement: float = 0.25
-    growth: float = 0.25
-    relevance: float = 0.15
+    views: float = 0.20
+    engagement: float = 0.20
+    growth: float = 0.20
+    relevance: float = 0.30
     recency: float = 0.10
 
     def validated(self) -> "Weights":

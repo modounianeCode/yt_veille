@@ -53,7 +53,7 @@ cp .env.example .env
 # Crée les tables
 yt-veille init-db
 
-# Importer les 4 domaines de départ (IA, dev web, finance, sport)
+# Importer les domaines de départ (IA, dev web, finance, sport, islam)
 yt-veille seed
 
 # Lancer une première collecte (tous les domaines actifs)
@@ -61,6 +61,9 @@ yt-veille collect
 
 # Voir le classement d'un domaine
 yt-veille top --domain ia --limit 15
+
+# Nettoyer les vidéos hors-sujet déjà en base (0 quota consommé)
+yt-veille purge --domain ia
 
 # Générer le rapport Markdown
 yt-veille report --domain ia
@@ -120,6 +123,7 @@ Un **garde-fou de quota** empêche de lancer une collecte qui dépasserait les
 | `add-domain --slug --name` | Crée un domaine |
 | `add-keyword --domain --term` | Ajoute un mot-clé |
 | `collect [--domain SLUG] [--days N] [--max N] [--order X]` | Lance une collecte |
+| `purge [--domain SLUG]` | Retire les vidéos hors-sujet (0 quota consommé) |
 | `top --domain SLUG [--limit N]` | Affiche le classement |
 | `report --domain SLUG [--limit N]` | Génère le rapport Markdown |
 | `export --domain SLUG [--format csv\|json\|xlsx] [--out PATH]` | Exporte les données |

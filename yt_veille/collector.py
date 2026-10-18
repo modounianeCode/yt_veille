@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -19,7 +19,7 @@ from .models import (
     VideoDomain,
     now_utc,
 )
-from .scoring import Candidate, Weights, score_batch
+from .scoring import Candidate, Weights, is_relevant, score_batch
 from .youtube import (
     COST_CHANNELS,
     COST_SEARCH,
@@ -140,6 +140,38 @@ def _track_quota(session: Session, units: int, requests: int) -> None:
     usage.requests_count += requests
 
 
+def purge_irrelevant(session: Session, domain: Domain) -> int:
+    """Supprime les scores et liens des vidéos sans aucun mot-clé du domaine.
+
+    Permet de nettoyer après coup des collectes faites avant le filtre de
+    pertinence. Ne consomme aucune unité de quota YouTube.
+    """
+    keywords = [k.term for k in domain.keywords]
+    if not keywords:
+        return 0
+
+    rows = session.execute(
+        select(VideoDomain.video_pk, Video.title, Video.description, Video.tags)
+        .join(Video, Video.id == VideoDomain.video_pk)
+        .where(VideoDomain.domain_id == domain.id)
+    ).all()
+
+    removed = 0
+    for video_pk, title, description, tags in rows:
+        if is_relevant(title, description, tags, keywords):
+            continue
+        session.execute(
+            delete(Score).where(
+                Score.domain_id == domain.id, Score.video_pk == video_pk
+            )
+        )
+        link = session.get(VideoDomain, (video_pk, domain.id))
+        if link is not None:
+            session.delete(link)
+        removed += 1
+    return removed
+
+
 def collect_domain(
     session: Session,
     client: YouTubeClient,
@@ -206,10 +238,18 @@ def collect_domain(
                 _upsert_channel(session, ch)
 
         # 4) Upsert vidéos + préparation du scoring
+        #    On écarte d'emblée les vidéos ne citant aucun mot-clé du domaine :
+        #    c'est ce qui évite les clips hors-sujet qui font beaucoup de vues.
         candidates: list[Candidate] = []
         video_by_id: dict[str, Video] = {}
+        ignored = 0
         for item in video_items:
             cand = _item_to_candidate(item)
+            if settings.require_keyword_match and not is_relevant(
+                cand.title, cand.description, cand.tags, keywords
+            ):
+                ignored += 1
+                continue
             video = _upsert_video(session, cand)
             video_by_id[cand.video_id] = video
 
@@ -259,6 +299,11 @@ def collect_domain(
                 )
             else:
                 link.matched_keywords = cand.matched_keywords
+
+        # 7) Nettoyage rétroactif : on retire les vidéos déjà en base devenues
+        #    hors-sujet (collectées avant l'activation du filtre).
+        if settings.require_keyword_match:
+            purge_irrelevant(session, domain)
 
         collection.status = "ok"
         collection.videos_found = len(candidates)

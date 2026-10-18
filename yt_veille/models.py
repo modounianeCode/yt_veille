@@ -47,10 +47,10 @@ class Domain(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Poids du score, réglables par domaine
-    w_views: Mapped[float] = mapped_column(Float, default=0.25)
-    w_engagement: Mapped[float] = mapped_column(Float, default=0.25)
-    w_growth: Mapped[float] = mapped_column(Float, default=0.25)
-    w_relevance: Mapped[float] = mapped_column(Float, default=0.15)
+    w_views: Mapped[float] = mapped_column(Float, default=0.20)
+    w_engagement: Mapped[float] = mapped_column(Float, default=0.20)
+    w_growth: Mapped[float] = mapped_column(Float, default=0.20)
+    w_relevance: Mapped[float] = mapped_column(Float, default=0.30)
     w_recency: Mapped[float] = mapped_column(Float, default=0.10)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)

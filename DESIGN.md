@@ -242,11 +242,26 @@ Poids par défaut (modifiables par domaine et/ou dans les réglages) :
 
 | Signal | Poids par défaut | Calcul |
 |---|---|---|
-| `score_views` | 0.25 | `log10(views)` normalisé sur le max du domaine |
-| `score_engagement` | 0.25 | `(likes + 2×commentaires) / vues`, normalisé |
-| `score_growth` | 0.25 | `(vues_now − vues_prev) / heures_écoulées` ; si première collecte → `vues / heures_depuis_publication` |
-| `score_relevance` | 0.15 | correspondance mots-clés (titre ×3, description ×1, tags ×2) |
+| `score_views` | 0.20 | `log10(views)` normalisé sur le max du domaine |
+| `score_engagement` | 0.20 | `(likes + 2×commentaires) / vues`, normalisé |
+| `score_growth` | 0.20 | `(vues_now − vues_prev) / heures_écoulées` ; si première collecte → `vues / heures_depuis_publication` |
+| `score_relevance` | 0.30 | correspondance mots-clés (titre ×3, description ×1, tags ×2) |
 | `score_recency` | 0.10 | décroissance exponentielle : `exp(−âge_jours / τ)`, τ par défaut 7 |
+
+> **Filtre de pertinence** (`REQUIRE_KEYWORD_MATCH=true`, activé par défaut) : une vidéo
+> qui ne cite **aucun** mot-clé du domaine (titre, tags ou description) est écartée avant
+> le scoring. Sans ce filtre, des vidéos très populaires mais hors-sujet trustaient le
+> haut du classement (ex. un clip de GB News dans le domaine « islam », un clip italien
+> dans « IA »).
+>
+> La commande **`yt-veille purge`** applique ce filtre de façon rétroactive aux données
+> déjà collectées — **sans consommer une seule unité de quota**. Le nettoyage est aussi
+> exécuté automatiquement à la fin de chaque collecte.
+
+> **Limite connue** : le filtre travaille sur les mots-clés littéraux. Un mot-clé ambigu
+> attire du bruit (« React » ramène des vidéos de *réactions*, et non du framework JS).
+> Dans ce cas, la solution est de préciser les mots-clés du domaine (ex. « React JS »,
+> « React tutoriel »).
 
 ### Normalisation
 Pour chaque signal, on ramène les valeurs brutes entre 0 et 1 :

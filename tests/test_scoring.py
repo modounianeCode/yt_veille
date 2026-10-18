@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from yt_veille.scoring import (
     Candidate,
     Weights,
+    is_relevant,
     normalize,
     raw_engagement,
     raw_growth,
@@ -113,4 +116,29 @@ def test_score_batch_ranks_and_weights():
 
 def test_invalid_weights_fall_back_to_defaults():
     w = Weights(views=-1, engagement=0, growth=0, relevance=0, recency=0).validated()
-    assert w.views == 0.25
+    assert w.views == 0.20
+
+
+def test_les_poids_par_defaut_somment_a_un():
+    w = Weights()
+    total = w.views + w.engagement + w.growth + w.relevance + w.recency
+    assert total == pytest.approx(1.0)
+    # La pertinence est le signal le plus fort (correctif anti hors-sujet)
+    assert w.relevance > w.views
+    assert w.relevance > w.growth
+    assert w.relevance >= 0.30
+
+
+def test_is_relevant_ecarte_les_videos_hors_sujet():
+    keywords = ["islam", "coran"]
+    # Aucun mot-clé nulle part → hors-sujet
+    assert not is_relevant("Britain is being transformed", "", ["news"], keywords)
+    # Présent dans le titre
+    assert is_relevant("Lecture du Coran", "", [], keywords)
+    # Présent seulement dans les tags
+    assert is_relevant("Conférence du soir", "", ["Islam"], keywords)
+    # Présent seulement dans la description
+    assert is_relevant("Vidéo", "Un cours sur le coran", [], keywords)
+    # Sans mot-clé ou mots-clés vides → rien n'est pertinent
+    assert not is_relevant("Peu importe", "", [], [])
+    assert not is_relevant("Peu importe", "", [], ["   "])

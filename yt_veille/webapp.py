@@ -421,10 +421,18 @@ def video_detail(request: Request, video_id: str, session: Session = Depends(get
         ).scalars()
     )
     domain = session.get(Domain, history[0].domain_id) if history else None
+    # Rang courant : position réelle dans le classement du domaine (et non le
+    # rang figé lors de la dernière collecte).
+    rank = None
+    if domain is not None:
+        rank = next(
+            (r["rank"] for r in rows_for_domain(session, domain) if r["video_id"] == video_id),
+            None,
+        )
     return render(
         request,
         "video.html",
-        {"video": video, "history": history, "domain": domain},
+        {"video": video, "history": history, "domain": domain, "rank": rank},
     )
 
 

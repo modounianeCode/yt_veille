@@ -56,7 +56,11 @@ def rows_for_domain(session: Session, domain: Domain, limit: int | None = None) 
     """Construit la liste de lignes (dict) prête à exporter / afficher."""
     now = datetime.now(timezone.utc)
     rows: list[dict] = []
-    for score, video, channel in latest_scores(session, domain.id):
+    # `latest_scores` renvoie déjà les vidéos triées du meilleur au moins bon :
+    # la position dans la liste *est* le rang (fiable même après une purge).
+    for position, (score, video, channel) in enumerate(
+        latest_scores(session, domain.id), start=1
+    ):
         engagement = (
             (video.like_count + 2 * video.comment_count) / video.view_count * 100
             if video.view_count
@@ -64,7 +68,7 @@ def rows_for_domain(session: Session, domain: Domain, limit: int | None = None) 
         )
         rows.append(
             {
-                "rank": score.rank_in_domain,
+                "rank": position,
                 "score_total": round(score.score_total, 4),
                 "video_id": video.video_id,
                 "title": video.title,

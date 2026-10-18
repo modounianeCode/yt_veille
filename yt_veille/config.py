@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Ordre de tri de la recherche YouTube
     search_order: str = "relevance"
 
+    # Exiger qu'au moins un mot-clé du domaine apparaisse dans la vidéo
+    # (titre, tags ou description). Évite les résultats hors-sujet.
+    require_keyword_match: bool = True
+
     # Paramètre τ de décroissance de la fraîcheur (en jours)
     recency_tau_days: float = 7.0
 

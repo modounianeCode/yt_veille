@@ -10,6 +10,7 @@ Exemples :
     yt-veille report --domain ia
     yt-veille export --domain ia --format xlsx
     yt-veille quota
+    yt-veille purge --domain ia
 """
 
 from __future__ import annotations
@@ -21,9 +22,10 @@ from pathlib import Path
 import yaml
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy import select
 
 from . import __version__
-from .collector import collect_all, latest_scores, quota_today
+from .collector import collect_all, latest_scores, purge_irrelevant, quota_today
 from .config import get_settings
 from .db import init_db, session_scope
 from .models import Domain, Keyword
@@ -119,6 +121,34 @@ def cmd_add_keyword(args: argparse.Namespace) -> int:
             return 0
         session.add(Keyword(domain_id=domain.id, term=args.term))
     console.print(f"[green]✓[/] Mot-clé « {args.term} » ajouté à « {args.domain} ».")
+    return 0
+
+
+def cmd_purge(args: argparse.Namespace) -> int:
+    """Retire les vidéos hors-sujet (aucun mot-clé du domaine) sans recollecter."""
+    init_db()
+    with session_scope() as session:
+        query = select(Domain)
+        if args.domain:
+            query = query.where(Domain.slug == args.domain)
+        domains = list(session.execute(query).scalars())
+        if not domains:
+            console.print(f"[red]Domaine inconnu :[/] {args.domain}")
+            return 1
+
+        table = Table(title="Purge des vidéos hors-sujet")
+        table.add_column("domaine")
+        table.add_column("vidéos retirées", justify="right")
+        total = 0
+        for domain in domains:
+            removed = purge_irrelevant(session, domain)
+            total += removed
+            table.add_row(domain.slug, str(removed))
+        console.print(table)
+        console.print(
+            f"[green]✓[/] {total} vidéo(s) hors-sujet retirée(s) "
+            f"(aucune unité de quota consommée)."
+        )
     return 0
 
 
@@ -285,6 +315,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_kw.add_argument("--domain", required=True)
     p_kw.add_argument("--term", required=True)
     p_kw.set_defaults(func=cmd_add_keyword)
+
+    p_purge = sub.add_parser(
+        "purge", help="Retirer les vidéos hors-sujet (aucun mot-clé du domaine)"
+    )
+    p_purge.add_argument("--domain", help="Slug d'un domaine (sinon : tous les domaines)")
+    p_purge.set_defaults(func=cmd_purge)
 
     p_collect = sub.add_parser("collect", help="Lancer une collecte")
     p_collect.add_argument("--domain", help="Slug d'un domaine (sinon : tous les actifs)")

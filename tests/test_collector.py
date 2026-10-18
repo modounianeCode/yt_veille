@@ -13,8 +13,13 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from yt_veille.collector import collect_domain, latest_scores, parse_duration
-from yt_veille.models import Base, Domain, Keyword, Score
+from yt_veille.collector import (
+    collect_domain,
+    latest_scores,
+    parse_duration,
+    purge_irrelevant,
+)
+from yt_veille.models import Base, Domain, Keyword, Score, Video, VideoDomain
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
 
@@ -155,3 +160,122 @@ def test_collect_computes_growth_on_second_run(session):
     assert last.collected_at.replace(tzinfo=timezone.utc) == later
     # On doit avoir au moins deux snapshots par vidéo (donc un vrai calcul de croissance)
     assert session.query(Score).filter_by(domain_id=domain.id).count() == 6
+
+
+class FakeClientWithNoise(FakeClient):
+    """Faux client qui renvoie en plus une vidéo très populaire mais hors-sujet."""
+
+    def __init__(self, videos, channels, noise_ids):
+        super().__init__(videos, channels)
+        self._noise_ids = noise_ids
+
+    def search(self, query, published_after, max_results=25, order="relevance", **kw):
+        items = super().search(query, published_after, max_results, order, **kw)
+        items.extend({"id": {"videoId": v}} for v in self._noise_ids)
+        return items[:max_results]
+
+
+def test_le_filtre_ecarte_la_video_hors_sujet(session):
+    """Une vidéo très populaire mais sans mot-clé du domaine ne doit pas entrer."""
+    domain = Domain(slug="dev-web", name="Développement Web")
+    session.add(domain)
+    session.flush()
+    session.add(Keyword(domain_id=domain.id, term="FastAPI"))
+    session.flush()
+
+    client = _fake_client()
+    # 5 millions de vues, mais aucun rapport avec FastAPI
+    client._videos["vid-noise"] = _make_video(
+        "vid-noise", "Recette de cuisine facile", "C3", 5_000_000, 90_000, 4_000, 5
+    )
+    noise = FakeClientWithNoise(client._videos, client._channels, ["vid-noise"])
+
+    collection = collect_domain(session, noise, domain, now=NOW)
+    session.commit()
+
+    assert collection.status == "ok"
+    assert collection.videos_found == 3  # le bruit est filtré
+    ids = {video.video_id for _, video, _ in latest_scores(session, domain.id)}
+    assert "vid-noise" not in ids
+
+
+def test_purge_retire_les_videos_hors_sujet_deja_en_base(session):
+    """Nettoyage rétroactif des collectes faites avant le filtre (0 quota)."""
+    domain = Domain(slug="dev-web", name="Développement Web")
+    session.add(domain)
+    session.flush()
+    session.add(Keyword(domain_id=domain.id, term="FastAPI"))
+    session.flush()
+
+    good = Video(video_id="good", title="FastAPI tuto", published_at=NOW)
+    bad = Video(video_id="bad", title="Recette de cuisine", published_at=NOW)
+    session.add_all([good, bad])
+    session.flush()
+    for video in (good, bad):
+        session.add(Score(video_pk=video.id, domain_id=domain.id, collected_at=NOW))
+        session.add(
+            VideoDomain(
+                video_pk=video.id, domain_id=domain.id, matched_keywords=[], first_seen_at=NOW
+            )
+        )
+    session.flush()
+
+    removed = purge_irrelevant(session, domain)
+    session.flush()
+
+    assert removed == 1
+    assert session.query(Score).filter_by(domain_id=domain.id).count() == 1
+    remaining = session.query(VideoDomain).filter_by(domain_id=domain.id).one()
+    assert remaining.video_pk == good.id
+
+
+def test_les_rangs_restent_contigus_apres_une_suppression(session):
+    """Le rang affiché est la position réelle, pas un rang figé (sinon trous)."""
+    from sqlalchemy import delete
+
+    from yt_veille.reports import rows_for_domain
+
+    domain = Domain(slug="dev-web", name="Développement Web")
+    session.add(domain)
+    session.flush()
+    session.add(Keyword(domain_id=domain.id, term="FastAPI"))
+    session.flush()
+
+    for position, (vid, total) in enumerate([("v1", 0.9), ("v2", 0.5), ("v3", 0.2)], start=1):
+        video = Video(video_id=vid, title=f"FastAPI {vid}", published_at=NOW)
+        session.add(video)
+        session.flush()
+        session.add(
+            Score(
+                video_pk=video.id,
+                domain_id=domain.id,
+                collected_at=NOW,
+                score_total=total,
+                rank_in_domain=position,
+            )
+        )
+        session.add(
+            VideoDomain(
+                video_pk=video.id,
+                domain_id=domain.id,
+                matched_keywords=["FastAPI"],
+                first_seen_at=NOW,
+            )
+        )
+    session.flush()
+
+    rows = rows_for_domain(session, domain)
+    assert [r["video_id"] for r in rows] == ["v1", "v2", "v3"]
+    assert [r["rank"] for r in rows] == [1, 2, 3]
+
+    # On retire la meilleure vidéo : les rangs doivent rester contigus (1, 2)
+    best = session.query(Video).filter_by(video_id="v1").one()
+    session.execute(
+        delete(Score).where(Score.domain_id == domain.id, Score.video_pk == best.id)
+    )
+    session.delete(session.get(VideoDomain, (best.id, domain.id)))
+    session.flush()
+
+    rows = rows_for_domain(session, domain)
+    assert [r["video_id"] for r in rows] == ["v2", "v3"]
+    assert [r["rank"] for r in rows] == [1, 2]
