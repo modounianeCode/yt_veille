@@ -1,0 +1,20 @@
+# Secrets & données locales — ne jamais commiter
+.env
+*.db
+*.sqlite
+*.sqlite3
+
+# Exports générés
+/exports/
+/reports/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/

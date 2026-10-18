@@ -1,0 +1,44 @@
+# Domaines de départ (seed initial)
+# Utilisé par :  yt-veille seed
+# Un « domaine » = un thème + une liste de mots-clés recherchés sur YouTube.
+
+domains:
+  - slug: ia
+    name: Intelligence Artificielle
+    description: IA générative, LLM, modèles et outils.
+    keywords:
+      - "IA générative"
+      - "LLM"
+      - "intelligence artificielle"
+      - "modèle open source"
+      - "deep learning"
+
+  - slug: dev-web
+    name: Développement Web
+    description: Langages, frameworks et outils du web.
+    keywords:
+      - "FastAPI"
+      - "Python tutoriel"
+      - "JavaScript"
+      - "React"
+      - "Docker"
+
+  - slug: finance
+    name: Finance / Investissement
+    description: Bourse, crypto, épargne et investissement.
+    keywords:
+      - "bourse débutant"
+      - "investissement"
+      - "crypto"
+      - "ETF"
+      - "éducation financière"
+
+  - slug: sport
+    name: Sport / Santé
+    description: Football, NBA, fitness et nutrition.
+    keywords:
+      - "fitness"
+      - "musculation"
+      - "nutrition"
+      - "NBA"
+      - "football analyse"

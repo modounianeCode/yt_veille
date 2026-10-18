@@ -1,0 +1,14 @@
+services:
+  yt-veille:
+    build: .
+    image: yt-veille:latest
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data          # base SQLite locale
+      - ./reports:/app/reports    # rapports Markdown
+      - ./exports:/app/exports    # exports CSV/JSON/XLSX
+    environment:
+      # En conteneur, on stocke la base SQLite dans le volume ./data
+      DATABASE_URL: sqlite:////app/data/yt_veille.db
+    command: ["sh", "-c", "yt-veille init-db && yt-veille seed && yt-veille collect"]

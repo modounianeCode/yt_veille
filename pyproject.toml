@@ -1,0 +1,33 @@
+[project]
+name = "yt-veille"
+version = "0.1.0"
+description = "Veille des meilleures vidéos YouTube par domaine (collecte, scoring, rapports)"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "pyyaml>=6.0",
+    "openpyxl>=3.1",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+# Pilote PostgreSQL pour Neon (pas nécessaire si tu restes en SQLite en local)
+postgres = ["psycopg[binary]>=3.1"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+yt-veille = "yt_veille.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["yt_veille*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
