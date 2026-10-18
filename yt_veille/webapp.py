@@ -11,13 +11,23 @@ Lancement :  yt-veille serve   →  http://127.0.0.1:8000
 from __future__ import annotations
 
 import math
+import secrets
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import markdown as md
-from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, Request
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -528,14 +538,38 @@ def api_quota(session: Session = Depends(get_db)):
 #  Déclenchement externe (cron) — protégé par un jeton secret
 # ─────────────────────────────────────────────────────────────
 @app.api_route("/api/cron/collect", methods=["GET", "POST"])
-def cron_collect(background: BackgroundTasks, token: str = Query("")):
+def cron_collect(
+    background: BackgroundTasks,
+    token: str = Query(""),
+    x_cron_token: str = Header(""),
+):
     """Déclenche une collecte de tous les domaines actifs.
 
-    Utilisable par un cron externe (ex. cron-job.org) sur un hébergeur où le
-    planificateur interne ne tourne pas. Nécessite `CRON_TOKEN` dans .env.
+    Le jeton peut être fourni soit en paramètre d'URL (`?token=…`), soit — de
+    façon plus sûre — dans l'en-tête `X-Cron-Token`. L'en-tête évite les
+    problèmes d'encodage : un jeton contenant `+`, `/` ou `=` est corrompu s'il
+    voyage dans une URL.
+
+    Utilisable par un cron externe (GitHub Actions, cron-job.org…) sur un
+    hébergeur où le planificateur interne ne tourne pas.
     """
     settings = get_settings()
-    if not settings.cron_token or token != settings.cron_token:
-        raise HTTPException(status_code=403, detail="Jeton invalide ou non configuré.")
+    expected = (settings.cron_token or "").strip()
+    # `x_cron_token` n'est une chaîne que lorsqu'elle vient d'une vraie requête :
+    # appelée directement (tests), la valeur par défaut reste un objet `Header`.
+    header_token = x_cron_token if isinstance(x_cron_token, str) else ""
+    provided = (token or header_token or "").strip()
+
+    if not expected:
+        raise HTTPException(
+            status_code=403,
+            detail="CRON_TOKEN n'est pas configuré sur le serveur (Render → Environment).",
+        )
+    # Comparaison à temps constant (évite de fuiter le jeton par le timing)
+    if not secrets.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    ):
+        raise HTTPException(status_code=403, detail="Jeton invalide.")
+
     background.add_task(collect_all_job)
     return {"status": "started"}

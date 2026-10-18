@@ -31,32 +31,37 @@ jobs:
   collecte:
     runs-on: ubuntu-latest
     steps:
-      - name: Vérifier que le jeton est configuré
-        env:
-          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
-        run: |
-          if [ -z "$CRON_TOKEN" ]; then
-            echo "::warning::CRON_TOKEN absent. Ajoute-le dans Settings → Secrets and variables → Actions."
-            echo "Aucun appel envoyé (aucun quota consommé)."
-            exit 0
-          fi
-          echo "Jeton présent, on continue."
-
       - name: Déclencher la collecte
         env:
           CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
         run: |
-          if [ -z "$CRON_TOKEN" ]; then
+          # Un copier-coller laisse parfois traîner des espaces ou des retours
+          # à la ligne : on les retire (ils font échouer la comparaison).
+          TOKEN=$(printf '%s' "$CRON_TOKEN" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::CRON_TOKEN est absent ou vide. Ajoute-le dans Settings → Secrets and variables → Actions."
+            echo "Aucun appel envoyé (aucun quota consommé)."
             exit 0
           fi
+
+          # Diagnostic sans révéler le secret : on n'affiche que la longueur.
+          echo "Jeton reçu : ${#TOKEN} caractère(s)"
+
+          # Le jeton voyage dans un en-tête HTTP plutôt que dans l'URL : les
+          # caractères +, / ou = d'un jeton aléatoire casseraient un paramètre
+          # de requête (le + est décodé comme un espace).
           # 90 s de marge : le premier appel peut réveiller le service endormi.
           code=$(curl -sS -o /tmp/reponse -w "%{http_code}" \
             --max-time 90 \
-            "https://yt-veille.onrender.com/api/cron/collect?token=${CRON_TOKEN}")
+            -H "X-Cron-Token: ${TOKEN}" \
+            "https://yt-veille.onrender.com/api/cron/collect")
           echo "Réponse HTTP : $code"
           cat /tmp/reponse; echo
+
           if [ "$code" != "200" ]; then
-            echo "::error::Échec du déclenchement (HTTP $code)."
+            echo "::error::Échec du déclenchement (HTTP $code). Voir la réponse ci-dessus (un espace ou un caractère ajouté par erreur lors du copier-coller sont des causes fréquentes)."
             exit 1
           fi
+
           echo "✓ Collecte lancée en arrière-plan (elle continue même après la fin du job)."
