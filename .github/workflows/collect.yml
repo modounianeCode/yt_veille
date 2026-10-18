@@ -1,0 +1,62 @@
+# Déclenche la collecte YT Veille depuis GitHub (aucun service tiers requis).
+#
+# Pourquoi ici ? Sur le plan gratuit de Render, le service s'endort et son
+# planificateur interne ne peut donc pas sonner. Ce workflow appelle l'endpoint
+# protégé du site, ce qui déclenche la collecte *et* réveille le service.
+#
+# ⚠️ Prérequis (une seule fois) :
+#   Settings → Secrets and variables → Actions → New repository secret
+#       Name  : CRON_TOKEN
+#       Value : le jeton copié depuis Render (onglet Environment)
+#
+# Tant que le secret n'est pas créé, le workflow ne fait rien (il s'arrête avec
+# un avertissement) : aucun appel n'est envoyé, donc aucun quota consommé.
+
+name: Collecte YT Veille
+
+on:
+  schedule:
+    # Heures UTC. GitHub peut décaler de quelques minutes (parfois ~15 min).
+    - cron: "0 6 * * *"    # 06:00 UTC
+    - cron: "0 18 * * *"   # 18:00 UTC
+  # Permet de lancer à la main depuis l'onglet « Actions » (bouton Run workflow)
+  workflow_dispatch:
+
+# Évite deux exécutions simultanées
+concurrency:
+  group: collecte-yt-veille
+  cancel-in-progress: false
+
+jobs:
+  collecte:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier que le jeton est configuré
+        env:
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          if [ -z "$CRON_TOKEN" ]; then
+            echo "::warning::CRON_TOKEN absent. Ajoute-le dans Settings → Secrets and variables → Actions."
+            echo "Aucun appel envoyé (aucun quota consommé)."
+            exit 0
+          fi
+          echo "Jeton présent, on continue."
+
+      - name: Déclencher la collecte
+        env:
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          if [ -z "$CRON_TOKEN" ]; then
+            exit 0
+          fi
+          # 90 s de marge : le premier appel peut réveiller le service endormi.
+          code=$(curl -sS -o /tmp/reponse -w "%{http_code}" \
+            --max-time 90 \
+            "https://yt-veille.onrender.com/api/cron/collect?token=${CRON_TOKEN}")
+          echo "Réponse HTTP : $code"
+          cat /tmp/reponse; echo
+          if [ "$code" != "200" ]; then
+            echo "::error::Échec du déclenchement (HTTP $code)."
+            exit 1
+          fi
+          echo "✓ Collecte lancée en arrière-plan (elle continue même après la fin du job)."
