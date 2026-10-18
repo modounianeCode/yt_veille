@@ -1,29 +1,43 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}{{ domain.name }} · YT Veille{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-1">
-  <h1 class="text-2xl font-bold">{{ domain.name }}</h1>
-  <span class="text-sm text-slate-400">{{ domain.slug }}</span>
-</div>
-<p class="text-slate-500 mb-6">{{ domain.description }}</p>
+<a href="/domains" class="text-sm font-medium text-slate-400 hover:text-slate-600">← Tous les domaines</a>
 
-{% if request.query_params.get('started') %}
-<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg px-4 py-3 mb-6">
-  ⏳ Collecte lancée en arrière-plan. Recharge la page dans quelques instants (et regarde le quota).
-</div>
-{% endif %}
-
-<!-- Barre d'actions / filtres -->
-<form method="get" class="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-wrap items-end gap-4">
+<div class="mb-6 mt-2 flex flex-wrap items-end justify-between gap-3">
   <div>
-    <label class="block text-xs text-slate-500 mb-1">Vues minimum</label>
+    <div class="flex items-center gap-2">
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ domain.name }}</h1>
+      <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{{ domain.slug }}</span>
+    </div>
+    {% if domain.description %}<p class="mt-1 text-sm text-slate-500">{{ domain.description }}</p>{% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    <form method="post" action="/domains/{{ domain.slug }}/collect">
+      <button class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500">↻ Collecter</button>
+    </form>
+    <div class="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <a href="/domains/{{ domain.slug }}/export?fmt=csv" class="border-r border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">CSV</a>
+      <a href="/domains/{{ domain.slug }}/export?fmt=json" class="border-r border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">JSON</a>
+      <a href="/domains/{{ domain.slug }}/export?fmt=xlsx" class="px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Excel</a>
+    </div>
+  </div>
+</div>
+
+<!-- Suivi de la collecte (HTMX) -->
+<div hx-get="/domains/{{ domain.slug }}/status?started={{ 1 if started else 0 }}&since={{ since | urlencode }}" hx-trigger="load" hx-swap="outerHTML"></div>
+
+<!-- Filtres -->
+<form method="get" class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div>
+    <label class="mb-1 block text-xs font-medium text-slate-500">Vues minimum</label>
     <input type="number" name="min_views" value="{{ min_views }}" min="0" step="100"
-           class="text-sm border border-slate-200 rounded px-2 py-1.5 w-28 focus:outline-none focus:ring-2 focus:ring-slate-300">
+           class="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
   </div>
   <div>
-    <label class="block text-xs text-slate-500 mb-1">Trier par</label>
-    <select name="order" class="text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-300">
+    <label class="mb-1 block text-xs font-medium text-slate-500">Trier par</label>
+    <select name="order" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
       <option value="score" {{ 'selected' if order == 'score' }}>Score</option>
       <option value="views" {{ 'selected' if order == 'views' }}>Vues</option>
       <option value="engagement" {{ 'selected' if order == 'engagement' }}>Engagement</option>
@@ -31,59 +45,75 @@
     </select>
   </div>
   <div>
-    <label class="block text-xs text-slate-500 mb-1">Limite</label>
-    <input type="number" name="limit" value="{{ limit }}" min="1" max="500"
-           class="text-sm border border-slate-200 rounded px-2 py-1.5 w-24 focus:outline-none focus:ring-2 focus:ring-slate-300">
+    <label class="mb-1 block text-xs font-medium text-slate-500">Par page</label>
+    <select name="limit" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+      {% for n in [12, 24, 48, 96] %}<option value="{{ n }}" {{ 'selected' if limit == n }}>{{ n }}</option>{% endfor %}
+    </select>
   </div>
-  <button class="text-sm bg-slate-800 text-white px-4 py-1.5 rounded hover:bg-slate-700">Appliquer</button>
-
-  <div class="ml-auto flex items-center gap-2">
-    <form method="post" action="/domains/{{ domain.slug }}/collect">
-      <button class="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-500">↻ Collecter</button>
-    </form>
-    <a href="/domains/{{ domain.slug }}/export?fmt=csv" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">CSV</a>
-    <a href="/domains/{{ domain.slug }}/export?fmt=json" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">JSON</a>
-    <a href="/domains/{{ domain.slug }}/export?fmt=xlsx" class="text-sm border border-slate-200 px-3 py-1.5 rounded hover:bg-slate-50">Excel</a>
-  </div>
+  <button class="rounded-lg bg-slate-800 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-700">Appliquer</button>
+  <span class="ml-auto text-xs text-slate-400">{{ total }} vidéo(s) · page {{ page }} / {{ pages }}</span>
 </form>
 
-<!-- Tableau des résultats -->
-<div class="bg-white rounded-xl shadow-sm overflow-hidden">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-slate-500 text-left">
-      <tr>
-        <th class="px-3 py-2 text-right">#</th>
-        <th class="px-3 py-2 text-right">Score</th>
-        <th class="px-3 py-2">Vidéo</th>
-        <th class="px-3 py-2">Chaîne</th>
-        <th class="px-3 py-2 text-right">Vues</th>
-        <th class="px-3 py-2 text-right">Likes</th>
-        <th class="px-3 py-2 text-right">Engag.</th>
-        <th class="px-3 py-2 text-right">Âge (j)</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for r in rows %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-3 py-2 text-right text-slate-400 font-mono">{{ r.rank }}</td>
-        <td class="px-3 py-2 text-right font-semibold">{{ "%.3f"|format(r.score_total) }}</td>
-        <td class="px-3 py-2 max-w-md">
-          <a href="/videos/{{ r.video_id }}" class="hover:underline line-clamp-1">{{ r.title }}</a>
-        </td>
-        <td class="px-3 py-2 text-slate-500">{{ r.channel }}</td>
-        <td class="px-3 py-2 text-right">{{ "{:,}".format(r.view_count) }}</td>
-        <td class="px-3 py-2 text-right">{{ "{:,}".format(r.like_count) }}</td>
-        <td class="px-3 py-2 text-right">{{ r.engagement_pct }} %</td>
-        <td class="px-3 py-2 text-right text-slate-400">{{ r.age_days }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">
-        Aucune vidéo. Clique sur « Collecter » pour lancer une première recherche.
-      </td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<!-- Résultats -->
+{% if rows %}
+<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
+        <tr>
+          <th class="px-4 py-2.5 text-right font-medium">#</th>
+          <th class="px-4 py-2.5 font-medium">Score</th>
+          <th class="px-4 py-2.5 font-medium">Vidéo</th>
+          <th class="px-4 py-2.5 text-right font-medium">Vues</th>
+          <th class="hidden px-4 py-2.5 text-right font-medium sm:table-cell">Likes</th>
+          <th class="hidden px-4 py-2.5 text-right font-medium md:table-cell">Engagement</th>
+          <th class="hidden px-4 py-2.5 text-right font-medium lg:table-cell">Âge</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in rows %}
+        <tr class="transition hover:bg-slate-50">
+          <td class="px-4 py-3 text-right font-mono text-slate-300">{{ r.rank }}</td>
+          <td class="px-4 py-3">{{ m.score_pill(r.score_total) }}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <a href="/videos/{{ r.video_id }}">{{ m.thumb(r.thumbnail_url, r.duration_hms, 'w-24') }}</a>
+              <div class="min-w-0">
+                <a href="/videos/{{ r.video_id }}" class="line-clamp-2 font-medium leading-snug text-slate-800 hover:text-brand-600">{{ r.title }}</a>
+                <div class="mt-0.5 truncate text-xs text-slate-400">{{ r.channel }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-right font-medium tabular-nums text-slate-700">{{ r.view_count | compact }}</td>
+          <td class="hidden px-4 py-3 text-right tabular-nums text-slate-500 sm:table-cell">{{ r.like_count | compact }}</td>
+          <td class="hidden px-4 py-3 text-right tabular-nums text-slate-500 md:table-cell">{{ r.engagement_pct }} %</td>
+          <td class="hidden px-4 py-3 text-right text-slate-400 lg:table-cell">{{ r.published_at | ago }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-<p class="text-xs text-slate-400 mt-3">{{ rows | length }} vidéo(s) affichée(s).</p>
+
+<!-- Pagination -->
+{% if pages > 1 %}
+<div class="mt-4 flex items-center justify-center gap-2">
+  {% set q = 'min_views=' ~ min_views ~ '&order=' ~ order ~ '&limit=' ~ limit %}
+  <a href="?{{ q }}&page={{ page - 1 }}"
+     class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition {% if page <= 1 %}pointer-events-none opacity-40{% else %}hover:bg-slate-50{% endif %}">← Précédent</a>
+  <span class="px-3 text-sm text-slate-500">{{ page }} / {{ pages }}</span>
+  <a href="?{{ q }}&page={{ page + 1 }}"
+     class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium shadow-sm transition {% if page >= pages %}pointer-events-none opacity-40{% else %}hover:bg-slate-50{% endif %}">Suivant →</a>
+</div>
+{% endif %}
+
+{% else %}
+  {{ m.empty_state('Aucune vidéo à afficher', 'Lance une collecte ou assouplis les filtres (vues minimum).', '🔍') }}
+  <div class="mt-4 flex justify-center">
+    <form method="post" action="/domains/{{ domain.slug }}/collect">
+      <button class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500">↻ Lancer une collecte</button>
+    </form>
+  </div>
+{% endif %}
 
 {% endblock %}

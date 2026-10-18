@@ -4,30 +4,76 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}YT Veille{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234f46e5'/><path d='M25 20l20 12-20 12z' fill='%23fff'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+              800: '#3730a3', 900: '#312e81',
+            },
+          },
+        },
+      },
+    };
+  </script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    [x-cloak] { display: none; }
+    ::-webkit-scrollbar { height: 8px; width: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .htmx-request .spinner { display: inline-block; }
+  </style>
 </head>
-<body class="h-full bg-slate-100 text-slate-800">
-<div class="min-h-full flex flex-col">
-  <header class="bg-slate-900 text-white">
-    <div class="mx-auto max-w-7xl px-4 py-3 flex items-center gap-6">
-      <a href="/" class="font-bold text-lg tracking-tight">📺 YT Veille</a>
-      <nav class="flex gap-1 text-sm">
-        <a href="/" class="px-3 py-1.5 rounded hover:bg-slate-700 {% if request.url.path == '/' %}bg-slate-700{% endif %}">Tableau de bord</a>
-        <a href="/domains" class="px-3 py-1.5 rounded hover:bg-slate-700 {% if request.url.path.startswith('/domains') %}bg-slate-700{% endif %}">Domaines</a>
-        <a href="/reports" class="px-3 py-1.5 rounded hover:bg-slate-700 {% if request.url.path.startswith('/reports') %}bg-slate-700{% endif %}">Rapports</a>
-        <a href="/docs" class="px-3 py-1.5 rounded hover:bg-slate-700">API</a>
+<body class="h-full bg-slate-50 font-sans text-slate-800 antialiased">
+{% import "_macros.html" as m %}
+<div class="flex min-h-full flex-col">
+  <header class="sticky top-0 z-30 border-b border-slate-800/70 bg-slate-900/95 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6">
+      <div class="flex h-16 items-center gap-4">
+        <a href="/" class="flex items-center gap-2.5">
+          <span class="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] text-white shadow-lg shadow-brand-600/30">▶</span>
+          <span class="leading-none">
+            <span class="block text-[15px] font-bold tracking-tight text-white">YT Veille</span>
+            <span class="mt-0.5 block text-[10px] font-medium text-slate-400">veille vidéo par domaine</span>
+          </span>
+        </a>
+        <nav class="ml-6 hidden items-center gap-1 text-sm md:flex">
+          {{ m.navlink('/', 'Tableau de bord', request.url.path == '/') }}
+          {{ m.navlink('/domains', 'Domaines', request.url.path.startswith('/domains')) }}
+          {{ m.navlink('/reports', 'Rapports', request.url.path.startswith('/reports')) }}
+        </nav>
+        <div class="ml-auto flex items-center gap-2">
+          <span class="hidden rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-400 lg:inline">{{ settings.database_url.split('+')[0].split(':')[0] }}</span>
+          <a href="/docs" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white">API</a>
+        </div>
+      </div>
+      <nav class="flex items-center gap-1 pb-2 text-sm md:hidden">
+        {{ m.navlink('/', 'Accueil', request.url.path == '/') }}
+        {{ m.navlink('/domains', 'Domaines', request.url.path.startswith('/domains')) }}
+        {{ m.navlink('/reports', 'Rapports', request.url.path.startswith('/reports')) }}
       </nav>
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl w-full px-4 py-8 flex-1">
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="text-center text-xs text-slate-400 py-4">
-    YT Veille · POC · données via YouTube Data API v3
+  <footer class="border-t border-slate-200 py-6">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 text-xs text-slate-400 sm:px-6">
+      <span>YT Veille · données via YouTube Data API v3</span>
+      <span>Quota du jour : {{ quota.units_used if quota else 0 }} / 10000 unités</span>
+    </div>
   </footer>
 </div>
 </body>

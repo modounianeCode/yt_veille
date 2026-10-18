@@ -1,48 +1,42 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m %}
 {% block title %}Rapports · YT Veille{% endblock %}
 {% block content %}
 
-<h1 class="text-2xl font-bold mb-6">Rapports</h1>
+<div class="mb-6">
+  <h1 class="text-2xl font-bold tracking-tight text-slate-900">Rapports</h1>
+  <p class="mt-1 text-sm text-slate-500">Rapports Markdown datés, un par domaine (top 20).</p>
+</div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
   <div class="lg:col-span-2">
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-500 text-left">
-          <tr>
-            <th class="px-4 py-2">Domaine</th>
-            <th class="px-4 py-2">Date</th>
-            <th class="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for r in reports %}
-          <tr class="hover:bg-slate-50">
-            <td class="px-4 py-2">{{ r.domain.name }}</td>
-            <td class="px-4 py-2 text-slate-500">{{ r.name }}</td>
-            <td class="px-4 py-2 text-right">
-              <a href="/reports/{{ r.domain.slug }}/{{ r.name }}" class="text-slate-600 hover:underline">Voir</a>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="3" class="px-4 py-10 text-center text-slate-400">
-            Aucun rapport. Génère-en un à droite.
-          </td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% if reports %}
+    <ul class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100">
+      {% for r in reports %}
+      <li class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">📄</span>
+        <div class="min-w-0 flex-1">
+          <a href="/reports/{{ r.domain.slug }}/{{ r.name }}" class="font-medium text-slate-800 hover:text-brand-600">{{ r.domain.name }}</a>
+          <div class="text-xs text-slate-400">{{ r.name }}</div>
+        </div>
+        <a href="/reports/{{ r.domain.slug }}/{{ r.name }}" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Voir</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      {{ m.empty_state('Aucun rapport', 'Génère ton premier rapport avec le panneau à droite.', '📄') }}
+    {% endif %}
   </div>
 
   <div>
-    <div class="bg-white rounded-xl shadow-sm p-5 sticky top-4">
-      <h2 class="font-semibold mb-3">Générer un rapport</h2>
-      <p class="text-xs text-slate-400 mb-3">Crée un rapport Markdown daté (top 20) pour un domaine.</p>
-      <div class="space-y-2">
+    <div class="sticky top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="font-semibold tracking-tight text-slate-900">Générer un rapport</h2>
+      <p class="mt-1 text-xs text-slate-500">Un rapport Markdown daté (top 20) par domaine.</p>
+      <div class="mt-4 space-y-2">
         {% for domain in domains %}
         <form method="post" action="/reports/{{ domain.slug }}/generate">
-          <button class="w-full text-left text-sm border border-slate-200 px-3 py-2 rounded hover:bg-slate-50">
-            📄 {{ domain.name }}
+          <button class="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:bg-brand-50">
+            📄 <span class="truncate">{{ domain.name }}</span>
           </button>
         </form>
         {% endfor %}

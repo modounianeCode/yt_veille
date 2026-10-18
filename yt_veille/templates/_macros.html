@@ -1,0 +1,74 @@
+{# Composants réutilisables (macros Jinja) #}
+
+{% macro navlink(href, label, active) -%}
+<a href="{{ href }}" class="rounded-lg px-3 py-1.5 font-medium transition {% if active %}bg-slate-800 text-white{% else %}text-slate-300 hover:bg-slate-800/60 hover:text-white{% endif %}">{{ label }}</a>
+{%- endmacro %}
+
+
+{% macro thumb(url, duration='', cls='w-28') -%}
+<div class="{{ cls }} relative aspect-video shrink-0 overflow-hidden rounded-lg bg-slate-200 ring-1 ring-slate-900/5">
+  {% if url %}<img src="{{ url }}" alt="" loading="lazy" class="h-full w-full object-cover">{% else %}<div class="grid h-full w-full place-items-center text-slate-400">▶</div>{% endif %}
+  {% if duration %}<span class="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] font-semibold text-white">{{ duration }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+
+{% macro score_pill(v) -%}
+{%- if v >= 0.6 -%}{% set c = 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' %}
+{%- elif v >= 0.4 -%}{% set c = 'bg-amber-50 text-amber-700 ring-amber-600/20' %}
+{%- else -%}{% set c = 'bg-slate-100 text-slate-600 ring-slate-500/20' %}{%- endif -%}
+<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset {{ c }}">{{ '%.3f'|format(v) }}</span>
+{%- endmacro %}
+
+
+{% macro score_bar(label, value) -%}
+<div class="flex items-center gap-3">
+  <span class="w-24 shrink-0 text-xs text-slate-500">{{ label }}</span>
+  <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+    <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600" style="width: {{ (value * 100) | round(0) }}%"></div>
+  </div>
+  <span class="w-10 shrink-0 text-right text-xs tabular-nums text-slate-400">{{ '%.2f'|format(value) }}</span>
+</div>
+{%- endmacro %}
+
+
+{% macro status_pill(status) -%}
+{%- if status == 'ok' -%}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>ok</span>
+{%- elif status == 'running' -%}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20"><span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>en cours</span>
+{%- elif status == 'skipped' -%}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20"><span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>quota</span>
+{%- else -%}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20"><span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>erreur</span>
+{%- endif -%}
+{%- endmacro %}
+
+
+{% macro stat_card(label, value, sub='', accent='brand') -%}
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ label }}</div>
+  <div class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ value }}</div>
+  {% if sub %}<div class="mt-1 text-xs text-slate-400">{{ sub }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+
+{% macro empty_state(title, text, icon='📭') -%}
+<div class="grid place-items-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-14 text-center">
+  <div class="text-3xl">{{ icon }}</div>
+  <div class="mt-3 font-semibold text-slate-700">{{ title }}</div>
+  <div class="mt-1 max-w-md text-sm text-slate-500">{{ text }}</div>
+</div>
+{%- endmacro %}
+
+
+{% macro btn_primary(label, attrs='') -%}
+<button {{ attrs|safe }} class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40">{{ label }}</button>
+{%- endmacro %}
+
+
+{% macro btn_ghost(label, href='', attrs='') -%}
+{% if href %}<a href="{{ href }}" {{ attrs|safe }} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">{{ label }}</a>
+{% else %}<button {{ attrs|safe }} class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50">{{ label }}</button>{% endif %}
+{%- endmacro %}

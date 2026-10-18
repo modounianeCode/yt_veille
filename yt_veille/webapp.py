@@ -10,6 +10,7 @@ Lancement :  yt-veille serve   →  http://127.0.0.1:8000
 
 from __future__ import annotations
 
+import math
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -39,6 +40,62 @@ DAILY_QUOTA = 10_000
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Petit verrou pour éviter deux collectes simultanées (SQLite n'aime pas trop)
 _collect_lock = threading.Lock()
+
+
+# ─────────────────────────────────────────────────────────────
+#  Filtres d'affichage pour les templates
+# ─────────────────────────────────────────────────────────────
+def _compact(value) -> str:
+    """131888 → « 131,9 K » ; 2400000 → « 2,4 M »."""
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    for suffix, divisor in (("M", 1_000_000), ("K", 1_000)):
+        if abs(n) >= divisor:
+            return f"{n / divisor:.1f}".rstrip("0").rstrip(".").replace(".", ",") + suffix
+    return str(int(n))
+
+
+def _ago(value) -> str:
+    """Date → « à l'instant », « il y a 3 h », « il y a 2 j », sinon la date."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    seconds = (datetime.now(timezone.utc) - value).total_seconds()
+    if seconds < 3600:
+        return f"il y a {int(seconds // 60)} min"
+    if seconds < 86400:
+        return f"il y a {int(seconds // 3600)} h"
+    if seconds < 86400 * 30:
+        return f"il y a {int(seconds // 86400)} j"
+    return value.strftime("%d/%m/%Y")
+
+
+templates.env.filters["compact"] = _compact
+templates.env.filters["ago"] = _ago
+
+
+def _common_context() -> dict:
+    """Variables disponibles dans tous les templates (barre de pied de page, etc.)."""
+    context: dict = {"settings": get_settings(), "quota": None}
+    try:
+        with SessionLocal() as session:
+            context["quota"] = quota_today(session)
+    except Exception:  # ne jamais casser une page à cause du pied de page
+        pass
+    return context
+
+
+def render(request: Request, name: str, context: dict | None = None, **kwargs):
+    """Rend un template en injectant le contexte commun."""
+    return templates.TemplateResponse(request, name, {**_common_context(), **(context or {})}, **kwargs)
 
 
 @asynccontextmanager
@@ -132,6 +189,16 @@ def _run_collection(slug: str, days: int | None, max_results: int | None) -> Non
         _collect_lock.release()
 
 
+def _run_collection_all() -> None:
+    """Collecte tous les domaines en arrière-plan (une seule à la fois)."""
+    if not _collect_lock.acquire(blocking=False):
+        return
+    try:
+        collect_all_job()
+    finally:
+        _collect_lock.release()
+
+
 # ─────────────────────────────────────────────────────────────
 #  Pages HTML
 # ─────────────────────────────────────────────────────────────
@@ -147,7 +214,7 @@ def dashboard(request: Request, session: Session = Depends(get_db)):
         rows = rows_for_domain(session, domain, limit=3)
         tops.append((domain, rows))
 
-    return templates.TemplateResponse(
+    return render(
         request,
         "dashboard.html",
         {
@@ -171,7 +238,7 @@ def domains_page(request: Request, session: Session = Depends(get_db)):
             )
         ).all()
     )
-    return templates.TemplateResponse(
+    return render(
         request,
         "domains.html",
         {"domains": domains, "counts": counts},
@@ -229,12 +296,21 @@ def domain_detail(
     slug: str,
     min_views: int = Query(0),
     order: str = Query("score"),
-    limit: int = Query(50),
+    limit: int = Query(24),
+    page: int = Query(1),
     session: Session = Depends(get_db),
 ):
     domain = _get_domain(session, slug)
-    rows = _apply_filters(rows_for_domain(session, domain), min_views, order)[:limit]
-    return templates.TemplateResponse(
+
+    all_rows = _apply_filters(rows_for_domain(session, domain), min_views, order)
+    total = len(all_rows)
+    limit = max(1, min(limit, 200))
+    pages = max(1, math.ceil(total / limit))
+    page = max(1, min(page, pages))
+    start = (page - 1) * limit
+    rows = all_rows[start : start + limit]
+
+    return render(
         request,
         "domain_detail.html",
         {
@@ -243,9 +319,73 @@ def domain_detail(
             "min_views": min_views,
             "order": order,
             "limit": limit,
+            "page": page,
+            "pages": pages,
+            "total": total,
+            "start": start,
             "settings": get_settings(),
+            "started": request.query_params.get("started") == "1",
+            "since": datetime.now(timezone.utc).isoformat(),
         },
     )
+
+
+@app.get("/domains/{slug}/status", response_class=HTMLResponse)
+def domain_collection_status(
+    request: Request,
+    slug: str,
+    started: int = Query(0),
+    since: str = Query(""),
+    session: Session = Depends(get_db),
+):
+    """Fragment HTMX : état de la collecte (recharge la page quand elle se termine)."""
+    domain = _get_domain(session, slug)
+    running = session.execute(
+        select(Collection)
+        .where(Collection.domain_id == domain.id, Collection.status == "running")
+        .order_by(Collection.started_at.desc())
+    ).scalars().first()
+
+    last = session.execute(
+        select(Collection)
+        .where(Collection.domain_id == domain.id)
+        .order_by(Collection.started_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+    # Une collecte s'est-elle terminée depuis l'affichage de la page ?
+    finished_since = False
+    if last is not None and last.finished_at is not None and since:
+        try:
+            finished_since = _as_aware(last.finished_at) >= _as_aware(
+                datetime.fromisoformat(since)
+            )
+        except ValueError:
+            finished_since = False
+
+    # Encore en cours, ou tout juste lancée mais pas encore visible en base :
+    # on continue de surveiller la page.
+    if running is not None or (started and not finished_since):
+        return render(
+            request,
+            "partials/status.html",
+            {"state": "running", "domain": domain, "started": started, "since": since},
+        )
+
+    return render(
+        request,
+        "partials/status.html",
+        {
+            "state": "idle",
+            "domain": domain,
+            "last": last,
+            "reload": finished_since,
+        },
+    )
+
+
+def _as_aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 @app.post("/domains/{slug}/collect")
@@ -261,6 +401,13 @@ def collect_now(
     return RedirectResponse(f"/domains/{slug}?started=1", status_code=303)
 
 
+@app.post("/collect-all")
+def collect_all_now(background: BackgroundTasks):
+    """Lance une collecte de tous les domaines actifs."""
+    background.add_task(_run_collection_all)
+    return RedirectResponse("/", status_code=303)
+
+
 @app.get("/videos/{video_id}", response_class=HTMLResponse)
 def video_detail(request: Request, video_id: str, session: Session = Depends(get_db)):
     video = session.execute(
@@ -274,7 +421,7 @@ def video_detail(request: Request, video_id: str, session: Session = Depends(get
         ).scalars()
     )
     domain = session.get(Domain, history[0].domain_id) if history else None
-    return templates.TemplateResponse(
+    return render(
         request,
         "video.html",
         {"video": video, "history": history, "domain": domain},
@@ -291,7 +438,7 @@ def reports_page(request: Request, session: Session = Depends(get_db)):
             if folder.exists():
                 for f in sorted(folder.glob("*.md"), reverse=True):
                     available.append({"domain": domain, "file": f, "name": f.name})
-    return templates.TemplateResponse(
+    return render(
         request, "reports.html", {"reports": available, "domains": domains}
     )
 
@@ -312,7 +459,7 @@ def view_report(request: Request, slug: str, name: str):
     if not path.exists() or path.suffix != ".md":
         raise HTTPException(404, "Rapport introuvable")
     html = md.markdown(path.read_text(encoding="utf-8"), extensions=["tables"])
-    return templates.TemplateResponse(
+    return render(
         request, "report_view.html", {"content": html, "slug": slug, "name": name}
     )
 

@@ -38,6 +38,14 @@ def _url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
+def _hms(seconds: int) -> str:
+    """Durée en « 12:34 » ou « 1:02:03 »."""
+    seconds = max(int(seconds or 0), 0)
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
 def _age_days(published_at: datetime, now: datetime) -> float:
     if published_at.tzinfo is None:
         published_at = published_at.replace(tzinfo=timezone.utc)
@@ -74,6 +82,14 @@ def rows_for_domain(session: Session, domain: Domain, limit: int | None = None) 
                 "score_relevance": round(score.score_relevance, 4),
                 "score_recency": round(score.score_recency, 4),
                 "url": _url(video.video_id),
+                # Champs d'affichage (non exportés en CSV)
+                "thumbnail_url": video.thumbnail_url,
+                "duration_hms": _hms(video.duration_seconds),
+                "channel_url": (
+                    f"https://www.youtube.com/channel/{video.channel_id}"
+                    if video.channel_id
+                    else ""
+                ),
             }
         )
     if limit:
@@ -138,10 +154,15 @@ def write_markdown_report(
 # ─────────────────────────────────────────────────────────────
 #  Exports CSV / JSON / Excel
 # ─────────────────────────────────────────────────────────────
+def _selected(rows: list[dict]) -> list[dict]:
+    """Ne garde que les colonnes d'export (ignore les champs d'affichage web)."""
+    return [{col: row.get(col) for col in EXPORT_COLUMNS} for row in rows]
+
+
 def export_csv(rows: list[dict], path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=EXPORT_COLUMNS)
+        writer = csv.DictWriter(fh, fieldnames=EXPORT_COLUMNS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
     return path
@@ -149,7 +170,9 @@ def export_csv(rows: list[dict], path: Path) -> Path:
 
 def export_json(rows: list[dict], path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps(_selected(rows), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return path
 
 
