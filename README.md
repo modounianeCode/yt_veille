@@ -199,6 +199,23 @@ GET https://<ton-service>.onrender.com/api/cron/collect?token=<CRON_TOKEN>
 `CRON_TOKEN` est généré par Render (`generateValue: true`) et consultable dans le
 tableau de bord. Tant que le jeton est vide, l'endpoint renvoie `403`.
 
+Réglages conseillés chez l'hébergeur de cron (ex. cron-job.org) :
+
+| Réglage | Valeur | Pourquoi |
+|---|---|---|
+| URL | `https://<service>.onrender.com/api/cron/collect?token=<CRON_TOKEN>` | déclenche + réveille le service |
+| Horaires | `06:00` et `18:00` **UTC** (2 tâches, ou 1 tâche par horaire) | cadence de veille |
+| Timeout | `60 s` | le 1er appel réveille un service endormi (~30–60 s) |
+| Requête | `GET` (le `POST` marche aussi) | — |
+| Traiter les codes ≠ 2xx comme échec | activé | alerte en cas de panne |
+
+L'endpoint répond immédiatement (`{"status": "started"}`) : la collecte continue en
+arrière-plan, donc pas de risque de dépassement de timeout une fois le service réveillé.
+
+> Le planificateur interne est désactivé (`SCHEDULE_ENABLED=false`) pour éviter une
+> **double collecte** (et un gaspillage de quota) quand le service est éveillé à l'heure
+> du cron.
+
 ---
 
 ## Tests

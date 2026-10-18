@@ -27,14 +27,19 @@ services:
       - key: SEARCH_ORDER
         value: "relevance"
 
-      # Planificateur intégré (tourne tant que le service est éveillé)
+      # Planificateur intégré : DÉSACTIVÉ car le plan gratuit met le service en
+      # veille (il ne se réveille donc pas pour sonner). On passe par un cron
+      # externe qui appelle /api/cron/collect — l'appel réveille aussi le site.
+      # Remettre "true" si tu abandonnes le cron externe.
       - key: SCHEDULE_ENABLED
-        value: "true"
+        value: "false"
       - key: SCHEDULE_TIMES
         value: "06:00,18:00"
       - key: SCHEDULE_TIMEZONE
         value: "UTC"
 
-      # Optionnel : cron externe (voir README). Render génère un jeton aléatoire.
+      # Jeton d'accès au déclenchement externe (voir README).
+      # Render génère la valeur : la lire dans le tableau de bord (onglet
+      # Environment) puis la coller dans cron-job.org.
       - key: CRON_TOKEN
         generateValue: true
