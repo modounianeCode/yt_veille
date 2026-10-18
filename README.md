@@ -4,8 +4,9 @@ Outil d'automatisation qui **trouve, classe et archive les meilleures vidéos
 YouTube par domaine** (thème + mots-clés), à partir de la **YouTube Data API v3**.
 
 > 📄 La conception complète est dans [`DESIGN.md`](DESIGN.md).
-> État actuel : **phases 1 à 5 et 7** faites (CLI, collecte, scoring, **interface
-> web**, **planification**). Reste : déploiement en ligne.
+> ✅ État actuel : **en ligne** sur <https://yt-veille.onrender.com/> — phases 1 à 7 faites
+> (CLI, collecte, scoring, interface web, exports, quota, cron externe).
+> 📌 Ce qui reste à faire (et pourquoi) est consigné dans [`TODO.md`](TODO.md).
 
 ---
 
