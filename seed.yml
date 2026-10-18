@@ -42,3 +42,13 @@ domains:
       - "nutrition"
       - "NBA"
       - "football analyse"
+
+  - slug: islam
+    name: Islam
+    description: Coran, hadith, sira et jurisprudence islamique.
+    keywords:
+      - "islam"
+      - "coran"
+      - "hadith"
+      - "vie du prophète"
+      - "fiqh"
