@@ -20,8 +20,9 @@ domains:
       - "FastAPI"
       - "Python tutoriel"
       - "JavaScript"
-      - "React"
       - "Docker"
+      - "React JS"
+      - "React tutoriel"
 
   - slug: finance
     name: Finance / Investissement
