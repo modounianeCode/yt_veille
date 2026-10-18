@@ -37,10 +37,8 @@ cd yt-veille
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 2. Installation (avec le pilote PostgreSQL optionnel)
+# 2. Installation (le pilote PostgreSQL est inclus)
 pip install -e .
-# ou, si tu veux aussi écrire vers Neon :
-# pip install -e ".[postgres]"
 
 # 3. Configuration
 cp .env.example .env
